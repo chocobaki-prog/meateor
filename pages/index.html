@@ -109,18 +109,12 @@
                   <span wf-if="state.app.profileCollapsed">Expand</span>
                   <span wf-if="!state.app.profileCollapsed">Collapse</span>
                   <span
-                    class="inline-block transition-transform"
-                    wf-class="{'rotate-180': !state.app.profileCollapsed}"
-                    >^</span
-                  >
+                    class="inline-block transition-transform nf nf-fa-chevron_up"
+                    wf-class="{{!state.app.profileCollapsed &amp;&amp; 'rotate-180'}}"
+                  ></span>
                 </button>
               </div>
-              <p
-                wf-if="state.app.profileCollapsed"
-                class="text-xs text-slate-500 border border-dashed border-slate-700 rounded-2xl px-4 py-3"
-              >
-                Profile looks ready. Expand if you want to tweak anything.
-              </p>
+
               <div
                 wf-if="!state.app.profileCollapsed"
                 class="flex flex-col gap-4"
@@ -290,9 +284,12 @@
                     class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent overflow-hidden"
                   >
                     <img
-                      class="absolute inset-0 object-cover object-center w-full h-full group-hover:scale-105"
+                      class="absolute inset-0 object-cover object-center w-full h-full group-hover:scale-105 transition"
                       wf-src="guy.photoUrl || 'media/placehoeder.png'"
                     />
+                    <div
+                      class="absolute left-0 right-0 top-0 bottom-0 bg-linear-to-b from-transparent to-black"
+                    ></div>
                   </div>
                   <div
                     class="absolute top-3 left-3 text-xs bg-black/50 px-3 py-1 rounded-full"
@@ -424,7 +421,7 @@
                 </label>
               </div>
             </div>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-2" wf-if="state.app.gallery.length">
               <div
                 class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-[0.2em]"
               >

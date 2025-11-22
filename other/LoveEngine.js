@@ -2,9 +2,11 @@ import { joinRoom } from 'https://unpkg.com/trystero?module';
 
 export default class LoveEngine {
   constructor(config, roomName) {
+    this.devid = localStorage.getItem('meateor:devid') || crypto.randomUUID();
+    localStorage.setItem('meateor:devid', this.devid);
     this.roomName = roomName;
     this.config = config;
-    this.me = {};
+    this.me = { devid: this.devid };
     this._peers = {};
     this.room = joinRoom(this.config, this.roomName);
     this._messageHandlers = new Set();
