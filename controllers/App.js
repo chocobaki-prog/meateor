@@ -37,10 +37,17 @@ export default class App {
     },
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
+      let radius = Number(this.me.radius || 0);
       return state.app.love.peers
-        .filter(x => x.displayName?.trim?.())
-        .filter(x => !x.location || state.app.radar.distance(x.location) <= Number(this.me.radius || 0))
+        .filter(x => x && x.displayName && String(x.displayName).trim())
+        .filter(x => {
+          if (!x.location) return true;
+          if (x.offline) return true;
+          let distance = state.app.radar.distance(x.location);
+          return Number.isNaN(distance) ? true : distance <= radius;
+        })
         .sort((a, b) => {
+          if (!!a.offline !== !!b.offline) return a.offline ? 1 : -1;
           if (!a.location && !b.location) return 0;
           if (!a.location) return 1;
           if (!b.location) return -1;
@@ -51,6 +58,11 @@ export default class App {
       let peerId = this.chat && this.chat.openPeerId;
       if (!peerId || !state.app.love) return null;
       return state.app.love.peers.find(peer => peer.id === peerId) || null;
+    },
+    get activeChatPeerOnline() {
+      let peer = this.activeChatPeer;
+      if (!peer) return false;
+      return !peer.offline && !!peer.connectionId;
     },
   };
 
@@ -111,6 +123,7 @@ export default class App {
 
   installSoundUnlockListeners = () => {
     if (this.soundUnlockInstalled) return;
+    if (typeof window === 'undefined') return;
     this.soundUnlockInstalled = true;
     let handler = () => {
       ['pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
@@ -164,6 +177,8 @@ export default class App {
     rosterList.forEach(peer => {
       if (!peer || !peer.id) return;
       currentIds.add(peer.id);
+      this.state.chat.peerDeviceIds[peer.id] = peer.id;
+      if (peer.connectionId) this.state.chat.peerDeviceIds[peer.connectionId] = peer.id;
       if (!this.knownRosterPeerIds.has(peer.id) && !shouldSeed) {
         this.playPingSound();
       }
@@ -173,6 +188,17 @@ export default class App {
     Array.from(this.knownRosterPeerIds).forEach(id => {
       if (!currentIds.has(id)) this.knownRosterPeerIds.delete(id);
     });
+  };
+
+  getPeerById = peerId => {
+    if (!peerId || !this.state.love || !Array.isArray(this.state.love.peers)) return null;
+    return this.state.love.peers.find(peer => peer && peer.id === peerId) || null;
+  };
+
+  canSendToPeer = peerId => {
+    let peer = this.getPeerById(peerId);
+    if (!peer) return false;
+    return !peer.offline && !!peer.connectionId;
   };
 
   getChatHistoryMap = () => {
@@ -215,12 +241,13 @@ export default class App {
     if (!peerId) return null;
     if (this.state.chat.peerDeviceIds[peerId]) return this.state.chat.peerDeviceIds[peerId];
     if (!this.state.love || !Array.isArray(this.state.love.peers)) return null;
-    let peer = this.state.love.peers.find(candidate => candidate && candidate.id === peerId);
-    if (peer && peer.devid) {
-      this.state.chat.peerDeviceIds[peerId] = peer.devid;
-      return peer.devid;
+    let peer = this.state.love.peers.find(candidate => candidate && (candidate.id === peerId || candidate.connectionId === peerId));
+    if (peer && peer.id) {
+      this.state.chat.peerDeviceIds[peerId] = peer.id;
+      if (!this.state.chat.peerDeviceIds[peer.id]) this.state.chat.peerDeviceIds[peer.id] = peer.id;
+      return peer.id;
     }
-    return null;
+    return peerId;
   };
 
   getStoredMessagesForPeer = (peerId, deviceIdOverride) => {
@@ -416,7 +443,7 @@ export default class App {
   sendPhotoMessage = dataUrl => {
     if (!dataUrl) return;
     let peerId = this.state.chat.openPeerId;
-    if (!peerId) return;
+    if (!peerId || !this.canSendToPeer(peerId)) return;
     let timestamp = Date.now();
     this.appendChatMessage(peerId, { direction: 'out', type: 'photo', photoUrl: dataUrl, timestamp });
     if (this.state.love && this.state.love.sendDirectMessage) {
@@ -505,7 +532,7 @@ export default class App {
     },
     sendChatMessage: () => {
       let peerId = this.state.chat.openPeerId;
-      if (!peerId) return;
+      if (!peerId || !this.canSendToPeer(peerId)) return;
       this.ensureChatContainers(peerId);
       let draft = this.state.chat.drafts[peerId] || '';
       let text = draft.trim();
@@ -527,6 +554,11 @@ export default class App {
     uploadChatPhoto: inputId => {
       let input = document.getElementById(inputId);
       if (!input || !input.files || !input.files[0]) return;
+      let peerId = this.state.chat.openPeerId;
+      if (!peerId || !this.canSendToPeer(peerId)) {
+        input.value = '';
+        return;
+      }
       let file = input.files[0];
       let reader = new FileReader();
       reader.onload = () => {
@@ -540,6 +572,8 @@ export default class App {
     },
     sendChatPhotoFromGallery: dataUrl => {
       if (!dataUrl) return;
+      let peerId = this.state.chat.openPeerId;
+      if (!peerId || !this.canSendToPeer(peerId)) return;
       this.addPhotoToGallery(dataUrl);
       this.sendPhotoMessage(dataUrl);
     },
@@ -563,7 +597,8 @@ export default class App {
     },
     handleChatScroll: element => {
       if (!element) return;
-      if (this.updateAutoScrollState(element)) {
+      let target = element && element.target ? element.target : element;
+      if (this.updateAutoScrollState(target)) {
         this.scheduleChatScroll();
       }
     },

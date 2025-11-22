@@ -9,52 +9,66 @@ export default class LoveEngine {
     this.me = { devid: this.devid, counter: 0 };
     this._peers = {};
     this._deviceActivity = {};
+    this._connections = {};
+    this._connectionLookup = {};
     this.counterTimeoutMs = 25000;
     this.room = joinRoom(this.config, this.roomName);
     this._messageHandlers = new Set();
     let [sendProfile, onProfile] = this.room.makeAction("profile");
     let [sendMessage, onMessage] = this.room.makeAction("message");
     this.room.onPeerJoin(id => {
-      this._peers[id] = { _counterLastChangedAt: Date.now(), _counterLastValue: null };
+      this._connectionLookup[id] = null;
       if (Object.keys(this.me).length > 0) sendProfile(this.me, id);
     });
     this.room.onPeerLeave(id => {
-      let peer = this._peers[id];
-      delete this._peers[id];
-      if (peer) {
-        let deviceId = peer._activityDeviceId || peer.devid;
-        if (deviceId) {
-          let stillPresent = Object.values(this._peers).some(other => other && (other._activityDeviceId || other.devid) === deviceId);
-          if (!stillPresent) delete this._deviceActivity[deviceId];
+      let deviceId = this._connectionLookup[id];
+      delete this._connectionLookup[id];
+      if (deviceId) {
+        this._connections[deviceId] = null;
+        let peer = this._peers[deviceId];
+        if (peer) {
+          peer.connectionId = null;
+          peer.offline = true;
+          peer.lastSeen = Date.now();
         }
       }
       d.update();
     });
     onProfile((profile, id) => {
       let safeProfile = profile && typeof profile === 'object' ? profile : {};
-      let existing = this._peers[id] || {};
-      let nextCounter = Number(safeProfile.counter) || 0;
       let deviceId = safeProfile.devid || id;
-      let activity = this._deviceActivity[deviceId] || { value: null, updatedAt: Date.now() };
-      if (activity.value !== nextCounter) {
-        activity = { value: nextCounter, updatedAt: Date.now() };
-      }
+      let nextCounter = Number(safeProfile.counter) || 0;
+      let timestamp = Date.now();
+      let activity = this._deviceActivity[deviceId] || { value: null, updatedAt: timestamp };
+      if (activity.value !== nextCounter) activity = { value: nextCounter, updatedAt: timestamp };
       this._deviceActivity[deviceId] = activity;
-      let lastChangedAt = activity.updatedAt;
-      this._peers[id] = {
-        id: null,
+      let previousConnection = this._connections[deviceId];
+      if (previousConnection && previousConnection !== id) delete this._connectionLookup[previousConnection];
+      this._connections[deviceId] = id;
+      this._connectionLookup[id] = deviceId;
+      let existing = this._peers[deviceId] || {};
+      this._peers[deviceId] = {
+        ...existing,
         ...safeProfile,
+        id: deviceId,
+        devid: deviceId,
+        connectionId: id,
+        offline: false,
         counter: nextCounter,
-        id,
-        _counterLastValue: activity.value,
-        _counterLastChangedAt: lastChangedAt,
-        _activityDeviceId: deviceId,
+        lastSeen: activity.updatedAt,
       };
       d.update();
     });
-    this.sendDirectMessage = (message, id) => sendMessage(message, id);
+    this.sendDirectMessage = (message, deviceId) => {
+      let connectionId = this._connections[deviceId];
+      if (!connectionId) return false;
+      sendMessage(message, connectionId);
+      return true;
+    };
     onMessage((payload, id) => {
-      this._messageHandlers.forEach(handler => handler(payload, id));
+      let deviceId = this._connectionLookup[id];
+      if (!deviceId) return;
+      this._messageHandlers.forEach(handler => handler(payload, deviceId));
       d.update();
     });
     this.beacon = setInterval(() => {
@@ -72,21 +86,22 @@ export default class LoveEngine {
   }
   pruneStalePeers() {
     let now = Date.now();
-    Object.keys(this._peers).forEach(id => {
-      let peer = this._peers[id];
+    let changed = false;
+    Object.keys(this._peers).forEach(deviceId => {
+      let peer = this._peers[deviceId];
       if (!peer) return;
-      let deviceId = peer._activityDeviceId || peer.devid || id;
-      let activity = deviceId ? this._deviceActivity[deviceId] : null;
-      let lastChangedAt = activity ? activity.updatedAt : (peer._counterLastChangedAt || 0);
+      let activity = this._deviceActivity[deviceId];
+      let lastChangedAt = activity ? activity.updatedAt : peer.lastSeen || 0;
       if (now - lastChangedAt > this.counterTimeoutMs) {
-        delete this._peers[id];
-        if (deviceId) {
-          let stillPresent = Object.values(this._peers).some(other => other && (other._activityDeviceId || other.devid || other.id) === deviceId);
-          if (!stillPresent) delete this._deviceActivity[deviceId];
+        if (!peer.offline || peer.connectionId) {
+          peer.offline = true;
+          peer.connectionId = null;
+          peer.lastSeen = lastChangedAt;
+          changed = true;
         }
-        d.update();
       }
     });
+    if (changed) d.update();
   }
   stop() {
     clearInterval(this.beacon);

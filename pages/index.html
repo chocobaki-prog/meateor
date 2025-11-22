@@ -71,7 +71,7 @@
                       </p>
                       <p class="text-sm text-slate-300">
                         {{state.app.me.age}} · {{state.app.me.tribe}} ·
-                        {{state.app.me.role}} · #{{state.app.me.counter || 0}}
+                        {{state.app.me.role}}
                       </p>
                     </div>
                   </div>
@@ -274,7 +274,7 @@
                 wf-map="guy of state.app.roster"
                 class="group bg-slate-900/40 border border-slate-900 rounded-3xl overflow-hidden flex flex-col relative cursor-pointer transition ring-offset-2 ring-offset-slate-950"
                 wf-onclick="post('app.openChat', guy.id)"
-                wf-class="{{state.app.chat.unread[guy.id] &gt; 0 &amp;&amp; 'ring-2 ring-amber-400 border-amber-400'}} {{state.app.chat.openPeerId === guy.id &amp;&amp; 'ring-2 ring-emerald-400 border-emerald-400'}}"
+                wf-class="{{state.app.chat.unread[guy.id] &gt; 0 &amp;&amp; 'ring-2 ring-amber-400 border-amber-400'}} {{state.app.chat.openPeerId === guy.id &amp;&amp; 'ring-2 ring-emerald-400 border-emerald-400'}} {{guy.offline &amp;&amp; 'opacity-60'}}"
               >
                 <span
                   wf-if="state.app.chat.unread[guy.id] &gt; 0"
@@ -295,9 +295,10 @@
                     ></div>
                   </div>
                   <div
-                    class="absolute top-3 left-3 text-xs bg-black/50 px-3 py-1 rounded-full"
+                    class="absolute top-3 left-3 text-xs px-3 py-1 rounded-full"
+                    wf-class="{'bg-red-500/80 text-white': guy.offline, 'bg-black/50': !guy.offline}"
                   >
-                    {{guy.vibe || 'Offline'}}
+                    {{guy.offline ? 'Offline' : (guy.vibe || 'Online')}}
                   </div>
                   <div
                     class="absolute bottom-3 left-3 right-3 flex items-end justify-between"
@@ -351,11 +352,16 @@
               <p class="text-xs text-slate-400">
                 {{state.app.activeChatPeer.age}} ·
                 {{state.app.activeChatPeer.tribe}} ·
-                {{state.app.activeChatPeer.role}} ·
-                #{{state.app.activeChatPeer.counter || 0}}
+                {{state.app.activeChatPeer.role}}
               </p>
               <p class="text-xs text-slate-300 mt-2">
                 {{state.app.activeChatPeer.tagline || 'No tagline yet'}}
+              </p>
+              <p
+                class="text-xs text-amber-300 mt-1"
+                wf-if="state.app.activeChatPeer.offline"
+              >
+                Offline · messages are paused.
               </p>
             </div>
             <button
@@ -411,13 +417,14 @@
                 placeholder="Drop a line..."
                 wf-value="state.app.chat.drafts[state.app.chat.openPeerId]"
                 wf-oninput="post('app.updateChatDraft', state.app.chat.openPeerId, _1.value)"
-                wf-onkeydown="event.key === 'Enter' && !event.shiftKey ? (event.preventDefault(), post('app.sendChatMessage')) : null"
+                wf-onkeydown="event.key === 'Enter' &amp;&amp; !event.shiftKey ? (event.preventDefault(), state.app.activeChatPeerOnline ? post('app.sendChatMessage') : null) : null"
                 value=""
               ></textarea>
               <div class="flex flex-col gap-2">
                 <button
                   class="px-4 py-3 rounded-2xl bg-emerald-400 text-black font-semibold text-sm"
-                  wf-onclick="post('app.sendChatMessage')"
+                  wf-class="{{!state.app.activeChatPeerOnline &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
+                  wf-onclick="state.app.activeChatPeerOnline &amp;&amp; post('app.sendChatMessage')"
                   value=""
                 >
                   Send
@@ -425,11 +432,20 @@
                 <label
                   for="chatPhotoUpload"
                   class="px-4 py-3 rounded-2xl border border-slate-700 text-xs uppercase tracking-[0.3em] text-slate-300 text-center cursor-pointer"
+                  wf-class="{{!state.app.activeChatPeerOnline &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
+                  wf-onclick="if(!state.app.activeChatPeerOnline){event.preventDefault();return false;}"
                 >
                   Upload
                 </label>
               </div>
             </div>
+            <p
+              class="text-xs text-amber-300"
+              wf-if="state.app.activeChatPeer &amp;&amp; !state.app.activeChatPeerOnline"
+            >
+              They're offline right now. You can read the chat but can't send
+              messages until they return.
+            </p>
             <div class="flex flex-col gap-2" wf-if="state.app.gallery.length">
               <div
                 class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-[0.2em]"
@@ -443,7 +459,8 @@
                 <button
                   wf-map="photo of state.app.gallery"
                   class="w-16 h-16 rounded-xl border border-slate-700 overflow-hidden shrink-0 bg-black/40"
-                  wf-onclick="post('app.sendChatPhotoFromGallery', photo)"
+                  wf-class="{{!state.app.activeChatPeerOnline &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
+                  wf-onclick="state.app.activeChatPeerOnline &amp;&amp; post('app.sendChatPhotoFromGallery', photo)"
                   value=""
                 >
                   <img class="w-full h-full object-cover" wf-src="photo" />
