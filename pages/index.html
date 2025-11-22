@@ -69,7 +69,7 @@
                       </p>
                       <p class="text-sm text-slate-300">
                         {{state.app.me.age}} · {{state.app.me.tribe}} ·
-                        {{state.app.me.role}}
+                        {{state.app.me.role}} · #{{state.app.me.counter || 0}}
                       </p>
                     </div>
                   </div>
@@ -96,7 +96,7 @@
             >
               <div class="flex items-center justify-between gap-4">
                 <div>
-                  <h2 class="text-lg font-semibold">Profile edit</h2>
+                  <h2 class="text-lg font-semibold">My Profile</h2>
                   <span class="text-xs text-slate-400"
                     >Broadcasts instantly</span
                   >
@@ -348,7 +348,8 @@
               <p class="text-xs text-slate-400">
                 {{state.app.activeChatPeer.age}} ·
                 {{state.app.activeChatPeer.tribe}} ·
-                {{state.app.activeChatPeer.role}}
+                {{state.app.activeChatPeer.role}} ·
+                #{{state.app.activeChatPeer.counter || 0}}
               </p>
               <p class="text-xs text-slate-300 mt-2">
                 {{state.app.activeChatPeer.tagline || 'No tagline yet'}}
@@ -477,7 +478,7 @@
         >
           <div
             class="relative z-10 w-full max-w-3xl mx-auto"
-            wf-onclick="event && event.stopPropagation && event.stopPropagation()"
+            wf-onclick="event &amp;&amp; event.stopPropagation &amp;&amp; event.stopPropagation()"
           >
             <div
               class="relative rounded-3xl border border-slate-700 bg-slate-950/90 overflow-hidden"

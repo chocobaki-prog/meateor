@@ -6,6 +6,7 @@ export default class App {
   chatHistoryStorageKey = 'meateor:chatHistory';
   unreadStorageKey = 'meateor:chatUnread';
   chatHydrateInterval = null;
+  profileCounterInterval = null;
 
   state = {
     profileCollapsed: false,
@@ -60,6 +61,15 @@ export default class App {
   persistGallery = () => {
     let gallery = Array.isArray(this.state.gallery) ? this.state.gallery : [];
     localStorage.setItem('meateor:gallery', JSON.stringify(gallery));
+  };
+
+  startProfileCounter = () => {
+    if (this.profileCounterInterval) clearInterval(this.profileCounterInterval);
+    this.profileCounterInterval = setInterval(() => {
+      if (!this.state.me) return;
+      let current = Number(this.state.me.counter) || 0;
+      this.state.me.counter = current + 1;
+    }, 1000);
   };
 
   getChatHistoryMap = () => {
@@ -327,6 +337,9 @@ export default class App {
         lookingFor: `Friends & chill`,
         radius: 100,
       });
+      if (typeof this.state.me.counter !== 'number' || Number.isNaN(this.state.me.counter)) {
+        this.state.me.counter = 0;
+      }
       let storedGallery = JSON.parse(localStorage.getItem('meateor:gallery') || '[]');
       this.state.gallery = Array.isArray(storedGallery) ? storedGallery : [];
       this.updateCollapsedFromProfile();
@@ -334,6 +347,7 @@ export default class App {
       if (this.chatHydrateInterval) clearInterval(this.chatHydrateInterval);
       this.hydrateAllPeerChats();
       this.chatHydrateInterval = setInterval(() => this.hydrateAllPeerChats(), 2000);
+      this.startProfileCounter();
     },
     toggleProfileCollapsed: () => {
       this.state.profileCollapsed = !this.state.profileCollapsed;
