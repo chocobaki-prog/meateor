@@ -19,7 +19,10 @@
     class="min-h-screen bg-slate-950 text-white flex flex-col"
     style="display: none"
   >
-    <div class="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div
+      class="min-h-screen bg-slate-950 text-white flex flex-col"
+      wf-onattach="post('app.init')"
+    >
       <div
         class="max-w-6xl mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8"
       >
@@ -151,13 +154,6 @@
                 </div>
               </div>
               <div class="p-4 bg-black/40 flex items-center gap-3">
-                <button
-                  class="text-xs uppercase tracking-widest border border-white/20 rounded-full px-3 py-1"
-                  wf-onclick="post('app.shufflePhoto')"
-                  value=""
-                >
-                  Shuffle photo
-                </button>
                 <div class="text-xs text-slate-400">
                   {{state.app.me.distance.toFixed ? state.app.me.distance.toFixed(1) : state.app.me.distance}} mi
                   radius
