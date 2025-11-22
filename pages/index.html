@@ -1,0 +1,491 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MEAT • Grindr clone</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <script>
+      window.rootPrefix = /^\/(files|preview)\//.test(location.pathname)
+        ? location.pathname.split('/').slice(0, 4).join('/')
+        : '/';
+    </script>
+    <script type="module" src="../webfoundry/ifdesigner.js"></script>
+    <script src="../webfoundry/head.js"></script>
+  </head>
+  <body
+    class="min-h-screen bg-slate-950 text-white flex flex-col"
+    style="display: none"
+  >
+    <div class="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div
+        class="max-w-6xl mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8"
+      >
+        <header class="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div class="flex-1">
+            <p class="text-xs uppercase tracking-[0.4em] text-amber-400">
+              MEAT
+            </p>
+            <h1 class="text-4xl font-black mt-2 leading-tight">
+              Grinder—looking for meat!
+            </h1>
+            <p class="text-sm text-slate-400 mt-1">
+              Dial in your profile, filter the roster, and tap into the shared
+              Trystero room.
+            </p>
+          </div>
+          <div
+            class="w-full lg:w-auto bg-slate-900/60 rounded-2xl border border-slate-800 p-4 flex flex-col gap-2"
+          >
+            <div class="text-sm text-slate-300">
+              Room:
+              <span class="text-white font-semibold"
+                >{{state.app.connection.roomId}}</span
+              >
+            </div>
+            <div class="flex items-center gap-3">
+              <span
+                class="h-2 w-2 rounded-full"
+                wf-class="{'bg-emerald-400': state.app.connection.status === 'connected', 'bg-amber-400': state.app.connection.status === 'connecting', 'bg-rose-500': state.app.connection.status === 'error'}"
+              ></span>
+              <span
+                class="uppercase tracking-widest text-xs"
+                wf-class="{'text-emerald-300': state.app.connection.status === 'connected', 'text-rose-300': state.app.connection.status === 'error', 'text-amber-300': state.app.connection.status === 'connecting'}"
+                >{{state.app.connection.status}}</span
+              >
+            </div>
+            <div class="text-xs text-slate-500">
+              {{state.app.connection.lastEvent}}
+            </div>
+            <button
+              class="text-xs font-semibold uppercase tracking-widest border border-amber-400/50 text-amber-300 rounded-full px-4 py-1 self-start hover:bg-amber-400/10"
+              wf-onclick="post('app.refreshRoom')"
+              value=""
+            >
+              Reset link
+            </button>
+            <div
+              wf-if="state.app.connection.error"
+              class="text-xs text-rose-300"
+            >
+              {{state.app.connection.error}}
+            </div>
+          </div>
+        </header>
+
+        <div class="grid gap-8 lg:grid-cols-[320px,1fr]">
+          <section class="space-y-6">
+            <div
+              class="rounded-3xl overflow-hidden border border-slate-900 bg-gradient-to-b from-slate-900 to-slate-950 shadow-2xl"
+            >
+              <div class="h-80 relative">
+                <img
+                  class="absolute inset-0 object-cover object-center w-full h-full"
+                  wf-src="state.app.me.photoUrl"
+                />
+                <div
+                  class="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent"
+                ></div>
+                <div
+                  class="absolute top-4 left-4 text-xs uppercase bg-black/50 px-3 py-1 rounded-full tracking-widest"
+                >
+                  Live profile
+                </div>
+                <div class="absolute bottom-4 left-4 right-4">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-2xl font-black">
+                        {{state.app.me.displayName}}
+                      </p>
+                      <p class="text-sm text-slate-300">
+                        {{state.app.me.age}} · {{state.app.me.tribe}} ·
+                        {{state.app.me.role}}
+                      </p>
+                    </div>
+                    <span
+                      class="text-xs bg-emerald-400 text-black px-3 py-1 rounded-full font-semibold"
+                      >{{state.app.me.vibe}}</span
+                    >
+                  </div>
+                  <p class="text-sm text-slate-200 mt-3">
+                    {{state.app.me.tagline}}
+                  </p>
+                  <div
+                    class="flex items-center gap-2 mt-4 text-xs text-slate-400"
+                  >
+                    <span class="inline-flex items-center gap-1"
+                      ><span class="h-2 w-2 rounded-full bg-lime-400"></span
+                      >{{state.app.me.location}}</span
+                    >
+                    <span>•</span>
+                    <span>{{state.app.me.lookingFor}}</span>
+                  </div>
+                  <div class="flex flex-wrap gap-2 mt-4">
+                    <span
+                      class="text-xs uppercase tracking-wider border border-white/20 rounded-full px-3 py-1"
+                      wf-map="tag of state.app.me.hashtags"
+                      >{{tag}}</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="p-4 bg-black/40 flex items-center gap-3">
+                <button
+                  class="text-xs uppercase tracking-widest border border-white/20 rounded-full px-3 py-1"
+                  wf-onclick="post('app.shufflePhoto')"
+                  value=""
+                >
+                  Shuffle photo
+                </button>
+                <div class="text-xs text-slate-400">
+                  {{state.app.me.distance.toFixed ? state.app.me.distance.toFixed(1) : state.app.me.distance}} mi
+                  radius
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="rounded-3xl border border-slate-900 bg-slate-900/60 p-5 space-y-4"
+            >
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Profile edit</h2>
+                <span class="text-xs text-slate-400">Broadcasts instantly</span>
+              </div>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Display name
+                <input
+                  wf-value="state.app.me.displayName"
+                  wf-oninput="post('app.updateProfileField','displayName', _1.value)"
+                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                  placeholder="Name"
+                  value=""
+                />
+              </label>
+              <div class="grid grid-cols-2 gap-4">
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Age
+                  <input
+                    type="number"
+                    min="18"
+                    wf-value="state.app.me.age"
+                    wf-oninput="post('app.updateProfileField','age', Number(_1.value))"
+                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    value=""
+                  />
+                </label>
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Role
+                  <select
+                    wf-value="state.app.me.role"
+                    wf-onchange="post('app.updateProfileField','role', _1.value)"
+                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    value=""
+                  >
+                    <option value="Top" selected="">Top</option>
+                    <option value="Vers">Vers</option>
+                    <option value="Bottom">Bottom</option>
+                    <option value="Side">Side</option>
+                  </select>
+                </label>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Tribe
+                  <select
+                    wf-value="state.app.me.tribe"
+                    wf-onchange="post('app.updateProfileField','tribe', _1.value)"
+                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    value=""
+                  >
+                    <option value="Discreet" selected="">Discreet</option>
+                    <option value="Bear">Bear</option>
+                    <option value="Jock">Jock</option>
+                    <option value="Geek">Geek</option>
+                    <option value="Daddy">Daddy</option>
+                  </select>
+                </label>
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Vibe
+                  <select
+                    wf-value="state.app.me.vibe"
+                    wf-onchange="post('app.updateProfileField','vibe', _1.value)"
+                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    value=""
+                  >
+                    <option value="Online" selected="">Online</option>
+                    <option value="Looking">Looking</option>
+                    <option value="Hosting">Hosting</option>
+                    <option value="Traveling">Traveling</option>
+                    <option value="Stealth">Stealth</option>
+                  </select>
+                </label>
+              </div>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Tagline
+                <input
+                  wf-value="state.app.me.tagline"
+                  wf-oninput="post('app.updateProfileField','tagline', _1.value)"
+                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                  placeholder="Say hi"
+                  value=""
+                />
+              </label>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Looking for
+                <input
+                  wf-value="state.app.me.lookingFor"
+                  wf-oninput="post('app.updateProfileField','lookingFor', _1.value)"
+                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                  placeholder="Hang, date, etc"
+                  value=""
+                />
+              </label>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Photo URL
+                <input
+                  wf-value="state.app.me.photoUrl"
+                  wf-oninput="post('app.updateProfileField','photoUrl', _1.value)"
+                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                  placeholder="https://..."
+                  value=""
+                />
+              </label>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Upload image
+                <input
+                  type="file"
+                  class="mt-1 w-full rounded-2xl bg-black/10 border border-dashed border-slate-800 px-4 py-3 text-slate-300 file:text-slate-200 file:bg-transparent file:border-0"
+                  value=""
+                  wf-onchange="post('app.pickPhoto', _1.files &amp;&amp; _1.files[0])"
+                  accept="image/*"
+                />
+              </label>
+              <p class="text-xs text-slate-500">
+                Stored locally in this browser and broadcast as a data URL.
+              </p>
+              <label class="text-xs uppercase tracking-widest text-slate-400"
+                >Distance radius (mi)
+                <input
+                  type="range"
+                  min="0.2"
+                  max="20"
+                  step="0.2"
+                  wf-value="state.app.me.distance"
+                  wf-oninput="post('app.updateDistance', _1.value)"
+                  class="mt-1 w-full"
+                  value="10.2"
+                />
+              </label>
+              <div class="text-xs text-slate-400">Interests</div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  wf-map="tag of state.app.vibeTags"
+                  class="px-3 py-1 rounded-full border border-slate-800 text-xs uppercase tracking-widest"
+                  wf-class="{'bg-amber-300 text-black border-amber-300': state.app.me.hashtags.includes(tag)}"
+                  wf-onclick="post('app.toggleVibeTag', tag)"
+                  value=""
+                >
+                  {{tag}}
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="rounded-3xl border border-slate-900 bg-black/40 p-5 space-y-4"
+            >
+              <h2 class="text-lg font-semibold">Filters</h2>
+              <div>
+                <p
+                  class="text-xs uppercase tracking-widest text-slate-400 mb-2"
+                >
+                  Tribe
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-white text-black border-white': state.app.filters.tribe === 'all'}"
+                    wf-onclick="post('app.setFilter','tribe','all')"
+                    value=""
+                  >
+                    All
+                  </button>
+                  <button
+                    wf-map="tribe of state.app.trendingTribes"
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-white text-black border-white': state.app.filters.tribe === tribe}"
+                    wf-onclick="post('app.setFilter','tribe', tribe)"
+                    value=""
+                  >
+                    {{tribe}}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p
+                  class="text-xs uppercase tracking-widest text-slate-400 mb-2"
+                >
+                  Vibe
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.filters.vibe === 'any'}"
+                    wf-onclick="post('app.setFilter','vibe','any')"
+                    value=""
+                  >
+                    Any
+                  </button>
+                  <button
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.filters.vibe === 'Online'}"
+                    wf-onclick="post('app.setFilter','vibe','Online')"
+                    value=""
+                  >
+                    Online
+                  </button>
+                  <button
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.filters.vibe === 'Hosting'}"
+                    wf-onclick="post('app.setFilter','vibe','Hosting')"
+                    value=""
+                  >
+                    Hosting
+                  </button>
+                  <button
+                    class="px-3 py-1 rounded-full border border-slate-800 text-xs"
+                    wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.filters.vibe === 'Looking'}"
+                    wf-onclick="post('app.setFilter','vibe','Looking')"
+                    value=""
+                  >
+                    Looking
+                  </button>
+                </div>
+              </div>
+              <label
+                class="flex flex-col gap-2 text-xs uppercase tracking-widest text-slate-400"
+                >Radius filter (mi)
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  wf-value="state.app.filters.radius"
+                  wf-oninput="post('app.setFilter','radius', Number(_1.value))"
+                  value="16"
+                />
+                <span class="text-sm text-white"
+                  >{{state.app.filters.radius}} mi</span
+                >
+              </label>
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-2xl font-bold">MEAT grid</h2>
+                <p class="text-sm text-slate-400">
+                  {{state.app.visibleRoster.length}} guys showing ·
+                  {{state.app.connection.peers}} live
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input
+                  placeholder="Say something spicy"
+                  wf-value="state.app.composer.text"
+                  wf-oninput="post('app.updateComposer', _1.value)"
+                  class="bg-black/40 border border-slate-800 rounded-full px-4 py-2 text-sm"
+                  value=""
+                />
+                <button
+                  class="px-3 py-2 rounded-full bg-amber-400 text-black text-xs uppercase tracking-widest"
+                  wf-onclick="post('app.sendHello', state.app.visibleRoster[0]?.peerId || state.app.visibleRoster[0]?.userId)"
+                  value=""
+                >
+                  Tap first
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              wf-if="state.app.visibleRoster.length"
+            >
+              <article
+                wf-map="guy of state.app.visibleRoster"
+                class="group bg-slate-900/40 border border-slate-900 rounded-3xl overflow-hidden flex flex-col"
+              >
+                <div class="relative h-48">
+                  <div
+                    class="absolute inset-0"
+                    wf-style="{'background-image': 'url(' + (guy.photoUrl || '') + ')', 'background-size': 'cover', 'background-position': 'center'}"
+                  ></div>
+                  <div
+                    class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"
+                  ></div>
+                  <div
+                    class="absolute top-3 left-3 text-xs bg-black/50 px-3 py-1 rounded-full"
+                  >
+                    {{guy.vibe || 'Offline'}}
+                  </div>
+                  <div
+                    class="absolute bottom-3 left-3 right-3 flex items-end justify-between"
+                  >
+                    <div>
+                      <p class="text-lg font-bold">{{guy.displayName}}</p>
+                      <p class="text-xs text-slate-300">
+                        {{guy.age}} · {{guy.tribe}}
+                      </p>
+                    </div>
+                    <span class="text-xs text-slate-300"
+                      >{{guy.distance ? guy.distance.toFixed ? guy.distance.toFixed(1) : guy.distance : '—'}} mi</span
+                    >
+                  </div>
+                </div>
+                <div class="p-4 flex flex-col gap-3 flex-1">
+                  <p class="text-sm text-slate-200">{{guy.tagline}}</p>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      class="text-[0.65rem] uppercase tracking-widest border border-white/10 px-2 py-0.5 rounded-full"
+                      wf-map="tag of guy.hashtags || []"
+                      >{{tag}}</span
+                    >
+                  </div>
+                  <div
+                    class="mt-auto flex items-center justify-between text-xs text-slate-400"
+                  >
+                    <span wf-if="guy.live">Live</span>
+                    <span wf-if="!guy.live" class="text-slate-600">Idle</span>
+                    <button
+                      class="ml-auto px-3 py-1 rounded-full text-xs font-semibold"
+                      wf-class="{'bg-emerald-400 text-black': guy.live, 'bg-slate-800 text-slate-400': !guy.live}"
+                      wf-onclick="post('app.sendHello', guy.peerId || guy.userId)"
+                      value=""
+                    >
+                      Ping
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <div
+              wf-if="!state.app.visibleRoster.length"
+              class="text-center text-slate-500 border border-dashed border-slate-700 rounded-3xl p-10"
+            >
+              No one fits the current filters. Widen the radius or tribe.
+            </div>
+          </section>
+        </div>
+
+        <div
+          wf-if="state.app.lastWave"
+          class="fixed bottom-6 right-6 max-w-xs bg-black/80 border border-white/10 rounded-2xl px-4 py-3 text-sm"
+          wf-class="{'text-emerald-300 border-emerald-400/40': state.app.lastWave.tone === 'inbound', 'text-amber-200 border-amber-400/40': state.app.lastWave.tone === 'sent', 'text-rose-200 border-rose-400/40': state.app.lastWave.tone === 'error'}"
+        >
+          {{state.app.lastWave.text}}
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

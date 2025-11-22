@@ -1,0 +1,102 @@
+<!DOCTYPE html><html><head><script>// Copyright 2019-2024 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+// taken from https://github.com/thedodd/trunk/blob/5c799dc35f1f1d8f8d3d30c8723cbb761a9b6a08/src/autoreload.js
+
+;(function () {
+  const reload_url = 'ws://127.0.0.1:1430/__tauri_cli'
+  const url = reload_url ? reload_url : window.location.href
+  const poll_interval = 5000
+  const reload_upon_connect = () => {
+    window.setTimeout(() => {
+      // when we successfully reconnect, we'll force a
+      // reload (since we presumably lost connection to
+      // tauri-cli due to it being killed)
+      const ws = new WebSocket(url)
+      ws.onopen = () => window.location.reload()
+      ws.onclose = reload_upon_connect
+    }, poll_interval)
+  }
+
+  const ws = new WebSocket(url)
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data)
+    if (msg.reload) {
+      window.location.reload()
+    }
+  }
+  ws.onclose = reload_upon_connect
+})()
+</script>
+    <meta charset="utf-8">
+    <title>webfoundry57</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+    [data-tauri-drag-region] {
+      app-region: drag;
+    }
+    </style>
+  </head>
+  <body class="flex flex-col [&amp;>div:first-child]:flex-1 min-h-screen">
+    <script type="module">
+      (async () => {
+        window.rootPrefix = /^\/(files|preview)\//.test(location.pathname) ? location.pathname.split('/').slice(0, 4).join('/') : '/';
+        if (rootPrefix === '/' || rootPrefix === '/collab.html') rootPrefix = '.';
+        let wforigin = new URL(location.href).searchParams.get('isolate') || location.origin;
+        if (/^(\w+\.)?(webfoundry.app|webfoundry\d+\.netlify\.app|localhost)$/.test(wforigin)) throw new Error(`Bad isolation origin`);
+        if (new URL(location.href).searchParams.get('isolate') != null) {
+          await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+          if (!navigator.serviceWorker.controller) return location.reload();
+          let parts = location.pathname.slice(1).split('/');
+          let tabId = parts[1];
+          window.wfThisProject = parts[2];
+          navigator.serviceWorker.addEventListener('message', async event => {
+            let { type, project, path } = event.data || {};
+            if (type !== 'fetch' || wfThisProject !== project) return;
+            let port = event.ports?.[0];
+            if (!port) return;
+            let handler = ev => {
+              let data = ev.data || {};
+              if (data.type !== 'fetch:res' || data.project !== project || data.path !== path) return;
+              removeEventListener('message', handler);
+              port.postMessage(data);
+            };
+            addEventListener('message', handler);
+            parent.postMessage({ type: 'fetch', project, path }, wforigin);
+          });
+          let register = () => navigator.serviceWorker.controller.postMessage({ type:'webfoundry-register-tab', tabId });
+          navigator.serviceWorker.addEventListener('controllerchange', register);
+          register();
+          if (!location.pathname.startsWith('/preview/')) {
+            let path = parts.slice(3).join('/');
+            if (path !== 'index.html') {
+              let handler = async ev => {
+                let data = ev.data || {};
+                if (data.type !== 'fetch:res' || data.project !== wfThisProject || data.path !== path) return;
+                removeEventListener('message', handler);
+                document.open();
+                document.write(await data.data.text());
+                document.close();
+              };
+              addEventListener('message', handler);
+              parent.postMessage({ type: 'fetch', project: wfThisProject, path }, wforigin);
+              return;
+            }
+          }
+          await new Promise(pres => setTimeout(pres, 100));
+        }
+        if (location.pathname.includes('/files/')) return;
+        let [, md, mapp] = await Promise.all([
+          import(`${rootPrefix}/webfoundry/head.js`),
+          import(`${rootPrefix}/webfoundry/dominant.js`),
+          import(`${rootPrefix}/webfoundry/app.js`),
+        ]);
+        document.body.prepend(md.default.el(mapp.default));
+        parent.postMessage({ path: `pages/${location.pathname.slice(1).split('/').slice(3).join('/')}`, type: 'ready', status: 200 }, wforigin);
+      })();
+    </script>
+  
+
+</body></html>
