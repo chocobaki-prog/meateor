@@ -4,6 +4,8 @@ import RadarEngine from '../other/RadarEngine.js';
 export default class App {
   profileFields = ['displayName', 'vibe', 'age', 'tribe', 'role', 'tagline', 'lookingFor', 'radius', 'photoUrl'];
   chatHistoryStorageKey = 'meateor:chatHistory';
+  unreadStorageKey = 'meateor:chatUnread';
+  chatHydrateInterval = null;
 
   state = {
     profileCollapsed: false,
@@ -14,6 +16,7 @@ export default class App {
       drafts: {},
       unread: {},
       peerDeviceIds: {},
+      hydratedPeers: {},
     },
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
@@ -70,6 +73,24 @@ export default class App {
     localStorage.setItem(this.chatHistoryStorageKey, JSON.stringify(safeHistory));
   };
 
+  getUnreadCountsMap = () => {
+    let raw = localStorage.getItem(this.unreadStorageKey);
+    if (!raw) return {};
+    let parsed = {};
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      parsed = {};
+    }
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  };
+
+  saveUnreadCountsMap = counts => {
+    let nextCounts = counts && typeof counts === 'object' ? counts : {};
+    localStorage.setItem(this.unreadStorageKey, JSON.stringify(nextCounts));
+  };
+
   getPeerDeviceId = peerId => {
     if (!peerId) return null;
     if (this.state.chat.peerDeviceIds[peerId]) return this.state.chat.peerDeviceIds[peerId];
@@ -82,8 +103,8 @@ export default class App {
     return null;
   };
 
-  getStoredMessagesForPeer = peerId => {
-    let deviceId = this.getPeerDeviceId(peerId);
+  getStoredMessagesForPeer = (peerId, deviceIdOverride) => {
+    let deviceId = deviceIdOverride || this.getPeerDeviceId(peerId);
     if (!deviceId) return [];
     let history = this.getChatHistoryMap();
     let stored = history[deviceId];
@@ -95,6 +116,15 @@ export default class App {
       photoUrl: entry.photoUrl,
       timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
     }));
+  };
+
+  getStoredUnreadForPeer = (peerId, deviceIdOverride) => {
+    let deviceId = deviceIdOverride || this.getPeerDeviceId(peerId);
+    if (!deviceId) return 0;
+    let counts = this.getUnreadCountsMap();
+    let value = counts[deviceId];
+    if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+    return value;
   };
 
   persistChatHistoryEntry = (peerId, entry) => {
@@ -110,6 +140,66 @@ export default class App {
       timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
     });
     this.saveChatHistoryMap(history);
+  };
+
+  persistUnreadCountForPeer = peerId => {
+    let deviceId = this.getPeerDeviceId(peerId);
+    if (!deviceId) return;
+    let counts = this.getUnreadCountsMap();
+    let countValue = Number(this.state.chat.unread[peerId]) || 0;
+    counts[deviceId] = countValue;
+    this.saveUnreadCountsMap(counts);
+  };
+
+  getMessageKey = entry => {
+    if (!entry) return '';
+    let direction = entry.direction === 'out' ? 'out' : 'in';
+    let type = entry.type === 'photo' ? 'photo' : 'text';
+    let text = typeof entry.text === 'string' ? entry.text : '';
+    let photoUrl = entry.photoUrl || '';
+    let timestamp = typeof entry.timestamp === 'number' ? entry.timestamp : 0;
+    return [direction, type, text, photoUrl, timestamp].join('|');
+  };
+
+  hydratePeerChatFromStorage = (peerId, deviceIdOverride) => {
+    if (!peerId) return;
+    if (this.state.chat.hydratedPeers[peerId]) return;
+    let deviceId = deviceIdOverride || this.getPeerDeviceId(peerId);
+    if (!deviceId) return;
+    let storedMessages = this.getStoredMessagesForPeer(peerId, deviceId);
+    let currentMessages = Array.isArray(this.state.chat.messages[peerId]) ? [...this.state.chat.messages[peerId]] : [];
+    if (Array.isArray(storedMessages) && storedMessages.length) {
+      let keySet = new Set();
+      let merged = [];
+      storedMessages.forEach(entry => {
+        let key = this.getMessageKey(entry);
+        keySet.add(key);
+        merged.push(entry);
+      });
+      currentMessages.forEach(entry => {
+        let key = this.getMessageKey(entry);
+        if (!keySet.has(key)) {
+          keySet.add(key);
+          merged.push(entry);
+        }
+      });
+      this.state.chat.messages[peerId] = merged;
+    } else {
+      this.state.chat.messages[peerId] = currentMessages;
+    }
+    let storedUnread = this.getStoredUnreadForPeer(peerId, deviceId);
+    let currentUnread = Number(this.state.chat.unread[peerId]) || 0;
+    if (storedUnread) this.state.chat.unread[peerId] = storedUnread + currentUnread;
+    else if (this.state.chat.unread[peerId] === undefined) this.state.chat.unread[peerId] = 0;
+    this.state.chat.hydratedPeers[peerId] = true;
+  };
+
+  hydrateAllPeerChats = () => {
+    if (!this.state.love || !Array.isArray(this.state.love.peers)) return;
+    this.state.love.peers.forEach(peer => {
+      if (!peer || !peer.id) return;
+      this.hydratePeerChatFromStorage(peer.id, peer.devid);
+    });
   };
 
   updateCollapsedFromProfile = () => {
@@ -128,12 +218,11 @@ export default class App {
 
   ensureChatContainers = peerId => {
     if (!peerId) return;
-    if (!this.state.chat.messages[peerId]) {
-      let storedMessages = this.getStoredMessagesForPeer(peerId);
-      this.state.chat.messages[peerId] = Array.isArray(storedMessages) ? storedMessages : [];
-    }
+    this.hydratePeerChatFromStorage(peerId);
+    if (!this.state.chat.messages[peerId]) this.state.chat.messages[peerId] = [];
     if (this.state.chat.drafts[peerId] === undefined) this.state.chat.drafts[peerId] = '';
-    if (this.state.chat.unread[peerId] === undefined) this.state.chat.unread[peerId] = 0;
+    if (this.state.chat.unread[peerId] === undefined) this.state.chat.unread[peerId] = this.getStoredUnreadForPeer(peerId);
+    if (Number.isNaN(this.state.chat.unread[peerId])) this.state.chat.unread[peerId] = 0;
   };
 
   appendChatMessage = (peerId, message) => {
@@ -162,8 +251,9 @@ export default class App {
     else message.text = text;
     this.appendChatMessage(peerId, message);
     if (this.state.chat.openPeerId !== peerId) {
-      let currentUnread = this.state.chat.unread[peerId] || 0;
+      let currentUnread = Number(this.state.chat.unread[peerId]) || 0;
       this.state.chat.unread[peerId] = currentUnread + 1;
+      this.persistUnreadCountForPeer(peerId);
     }
   };
 
@@ -200,6 +290,9 @@ export default class App {
       this.state.gallery = Array.isArray(storedGallery) ? storedGallery : [];
       this.updateCollapsedFromProfile();
       this.state.initialized = true;
+      if (this.chatHydrateInterval) clearInterval(this.chatHydrateInterval);
+      this.hydrateAllPeerChats();
+      this.chatHydrateInterval = setInterval(() => this.hydrateAllPeerChats(), 2000);
     },
     toggleProfileCollapsed: () => {
       this.state.profileCollapsed = !this.state.profileCollapsed;
@@ -236,6 +329,7 @@ export default class App {
       this.ensureChatContainers(peerId);
       this.state.chat.openPeerId = peerId;
       this.state.chat.unread[peerId] = 0;
+      this.persistUnreadCountForPeer(peerId);
     },
     updateChatDraft: (peerId, value) => {
       if (!peerId) return;

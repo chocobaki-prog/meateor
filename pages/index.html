@@ -366,7 +366,7 @@
             <div
               wf-map="message of (state.app.chat.messages[state.app.chat.openPeerId] || [])"
               class="flex"
-              wf-class="{'justify-end': message.direction === 'out'}"
+              wf-class="{{message.direction === 'out' &amp;&amp; 'justify-end'}}"
             >
               <div
                 class="px-4 py-2 rounded-2xl text-sm max-w-[80%] flex flex-col gap-1"
@@ -381,9 +381,7 @@
                     wf-src="message.photoUrl"
                   />
                 </div>
-                <p class="whitespace-pre-wrap" wf-if="message.text">
-                  {{message.text}}
-                </p>
+                <p class="" wf-if="message.text">{{message.text}}</p>
                 <p class="text-[0.6rem] text-slate-300 mt-1">
                   {{new Date(message.timestamp || Date.now()).toLocaleTimeString()}}
                 </p>
