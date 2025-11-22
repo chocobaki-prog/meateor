@@ -14,7 +14,10 @@ export default class LoveEngine {
     });
     this.room.onPeerLeave(id => { delete this._peers[id]; d.update() });
     onProfile((profile, id) => { this._peers[id] = { id: null, ...profile, id }; d.update() });
-    this.beacon = setInterval(() => sendProfile(this.me), 2000);
+    this.beacon = setInterval(() => {
+      sendProfile(this.me);
+      localStorage.setItem('meateor:profile', JSON.stringify(this.me));
+    }, 2000);
   }
   get peers() { return [...Object.values(this._peers)] }
   stop() { clearInterval(this.beacon) }
