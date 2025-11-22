@@ -3,6 +3,7 @@ import RadarEngine from '../other/RadarEngine.js';
 
 export default class App {
   profileFields = ['displayName', 'vibe', 'age', 'tribe', 'role', 'tagline', 'lookingFor', 'radius', 'photoUrl'];
+  chatHistoryStorageKey = 'meateor:chatHistory';
 
   state = {
     profileCollapsed: false,
@@ -12,6 +13,7 @@ export default class App {
       messages: {},
       drafts: {},
       unread: {},
+      peerDeviceIds: {},
     },
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
@@ -50,6 +52,66 @@ export default class App {
     localStorage.setItem('meateor:gallery', JSON.stringify(gallery));
   };
 
+  getChatHistoryMap = () => {
+    let raw = localStorage.getItem(this.chatHistoryStorageKey);
+    if (!raw) return {};
+    let parsed = {};
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      parsed = {};
+    }
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  };
+
+  saveChatHistoryMap = history => {
+    let safeHistory = history && typeof history === 'object' ? history : {};
+    localStorage.setItem(this.chatHistoryStorageKey, JSON.stringify(safeHistory));
+  };
+
+  getPeerDeviceId = peerId => {
+    if (!peerId) return null;
+    if (this.state.chat.peerDeviceIds[peerId]) return this.state.chat.peerDeviceIds[peerId];
+    if (!this.state.love || !Array.isArray(this.state.love.peers)) return null;
+    let peer = this.state.love.peers.find(candidate => candidate && candidate.id === peerId);
+    if (peer && peer.devid) {
+      this.state.chat.peerDeviceIds[peerId] = peer.devid;
+      return peer.devid;
+    }
+    return null;
+  };
+
+  getStoredMessagesForPeer = peerId => {
+    let deviceId = this.getPeerDeviceId(peerId);
+    if (!deviceId) return [];
+    let history = this.getChatHistoryMap();
+    let stored = history[deviceId];
+    if (!Array.isArray(stored)) return [];
+    return stored.map(entry => ({
+      direction: entry.direction === 'out' ? 'out' : 'in',
+      type: entry.type === 'photo' ? 'photo' : 'text',
+      text: typeof entry.text === 'string' ? entry.text : '',
+      photoUrl: entry.photoUrl,
+      timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
+    }));
+  };
+
+  persistChatHistoryEntry = (peerId, entry) => {
+    let deviceId = this.getPeerDeviceId(peerId);
+    if (!deviceId || !entry) return;
+    let history = this.getChatHistoryMap();
+    if (!Array.isArray(history[deviceId])) history[deviceId] = [];
+    history[deviceId].push({
+      direction: entry.direction === 'out' ? 'out' : 'in',
+      type: entry.type === 'photo' ? 'photo' : 'text',
+      text: typeof entry.text === 'string' ? entry.text : '',
+      photoUrl: entry.photoUrl,
+      timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
+    });
+    this.saveChatHistoryMap(history);
+  };
+
   updateCollapsedFromProfile = () => {
     this.state.profileCollapsed = this.isProfileComplete(this.state.me);
   };
@@ -66,7 +128,10 @@ export default class App {
 
   ensureChatContainers = peerId => {
     if (!peerId) return;
-    if (!this.state.chat.messages[peerId]) this.state.chat.messages[peerId] = [];
+    if (!this.state.chat.messages[peerId]) {
+      let storedMessages = this.getStoredMessagesForPeer(peerId);
+      this.state.chat.messages[peerId] = Array.isArray(storedMessages) ? storedMessages : [];
+    }
     if (this.state.chat.drafts[peerId] === undefined) this.state.chat.drafts[peerId] = '';
     if (this.state.chat.unread[peerId] === undefined) this.state.chat.unread[peerId] = 0;
   };
@@ -82,6 +147,7 @@ export default class App {
       timestamp: message.timestamp || Date.now(),
     };
     this.state.chat.messages[peerId].push(entry);
+    this.persistChatHistoryEntry(peerId, entry);
   };
 
   handleIncomingChat = (peerId, payload) => {
