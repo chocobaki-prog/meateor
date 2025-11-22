@@ -6,7 +6,10 @@ export default class Engine {
     this.roomName = roomName;
     this.config = config;
     this.myProfile = {};
-    this.peers = new Map();   // peerId -> { profile: {...} }
+    this.peers = new Map();       // peerId -> { profile: {...} }
+
+    // cached location (null until available)
+    this.currentLocation = null;
 
     // ---- connect ----
     this.room = joinRoom(this.config, this.roomName);
@@ -39,17 +42,93 @@ export default class Engine {
     });
   }
 
+  // --------------------------------------------------------
+  // 🛰️ LOCATION FUNCTIONS
+  // --------------------------------------------------------
+
   /**
-   * Merge new metadata into your profile and broadcast to all peers.
+   * Ask browser for geolocation permission.
+   * Returns true on success, false if denied or unavailable.
    */
-  setProfile(profileObj) {
+  async requestLocationPermission() {
+    if (!("geolocation" in navigator)) {
+      console.warn("Geolocation is not available in this browser/environment.");
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.currentLocation = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: pos.timestamp
+          };
+          resolve(true);
+        },
+        (err) => {
+          console.warn("Location permission denied:", err);
+          this.currentLocation = null;
+          resolve(false);
+        },
+        { enableHighAccuracy: true }
+      );
+    });
+  }
+
+  /**
+   * Internal helper to fetch fresh GPS data right before sending profile.
+   */
+  async _updateLocation() {
+    if (!("geolocation" in navigator)) {
+      this.currentLocation = null;
+      return;
+    }
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.currentLocation = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: pos.timestamp
+          };
+          resolve();
+        },
+        () => {
+          this.currentLocation = null;
+          resolve();
+        },
+        { enableHighAccuracy: true }
+      );
+    });
+  }
+
+  // --------------------------------------------------------
+  // 🧪 PROFILE FUNCTIONS
+  // --------------------------------------------------------
+
+  /**
+   * Merge new metadata, attach GPS data, and broadcast.
+   */
+  async setProfile(profileObj) {
+    // merge user-supplied data
     this.myProfile = { ...this.myProfile, ...profileObj };
+
+    // auto-update GPS location
+    await this._updateLocation();
+
+    // inject location property
+    this.myProfile.location = this.currentLocation || 'Somewhere';
+
+    // broadcast to all peers
     this.sendProfile(this.myProfile);
   }
 
   /**
-   * Return an array of peers and their metadata.
-   * [{ id, profile }, ...]
+   * Get array of peers and their metadata: [{ id, profile }, ...]
    */
   getPeers() {
     return [...this.peers.entries()].map(([id, { profile }]) => ({
@@ -58,10 +137,7 @@ export default class Engine {
     }));
   }
 
-  /**
-   * Optionally get your own profile.
-   */
   getMyProfile() {
     return this.myProfile;
   }
-};
+}

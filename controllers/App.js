@@ -10,6 +10,7 @@ export default class App {
       role: 'Bottom',
       tagline: `Your cute tranny succubus!`,
       lookingFor: `FUUUUCCCCKKK!!!`,
+      location: 'Somewhere',
     },
   };
 
@@ -22,6 +23,11 @@ export default class App {
     beacon: () => {
       this.state.eng.setProfile(this.state.me);
       setTimeout(() => post('app.beacon'), 2000);
+    },
+
+    useGeolocation: async () => {
+      let res = await this.state.eng.requestLocationPermission();
+      if (!res) throw new Error(`Failed to setup GPS`);
     },
   };
 }

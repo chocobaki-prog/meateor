@@ -130,10 +130,10 @@
                       wf-onclick="post('app.useGeolocation')"
                       value=""
                     >
-                      <span wf-if="state.app.geolocation.status === 'ok'"
-                        >GPS locked</span
+                      <span wf-if="state.app.me.location !== 'Somewhere'"
+                        >Disable GPS</span
                       >
-                      <span wf-if="state.app.geolocation.status !== 'ok'"
+                      <span wf-if="state.app.me.location === 'Somewhere'"
                         >Use GPS</span
                       >
                     </button>
