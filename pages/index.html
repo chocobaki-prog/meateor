@@ -483,7 +483,7 @@
 
       <div
         wf-if="state.app.chat.openPeerId"
-        class="fixed inset-0 sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[380px] sm:h-[560px] z-30"
+        class="fixed inset-0 sm:inset-auto sm:right-6 sm:bottom-6 z-30 sm:h-[560px] sm:w-[360px]"
       >
         <div
           class="flex flex-col bg-slate-950/95 border border-slate-800 backdrop-blur rounded-none sm:rounded-3xl w-full h-full shadow-2xl overflow-hidden"
@@ -590,14 +590,18 @@
                 >
                   Send
                 </button>
-                <label
-                  for="chatPhotoUpload"
-                  class="px-4 py-3 rounded-2xl border border-slate-700 text-xs uppercase tracking-[0.3em] text-slate-300 text-center cursor-pointer"
-                  wf-class="{{!state.app.activeChatPeerOnline &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
-                  wf-onclick="if(!state.app.activeChatPeerOnline){event.preventDefault();return false;}"
-                >
-                  Upload
-                </label>
+                <div class="flex gap-2">
+                  <label
+                    for="chatPhotoUpload"
+                    class="py-3 rounded-2xl border border-slate-700 uppercase tracking-[0.3em] text-slate-300 text-center cursor-pointer block nf nf-fa-camera px-3"
+                    wf-class="{{!state.app.activeChatPeerOnline &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
+                    wf-onclick="if(!state.app.activeChatPeerOnline){event.preventDefault();return false;}"
+                  ></label
+                  ><button
+                    class="nf nf-fa-video_camera flex items-center rounded-2xl border border-slate-700 px-3 text-slate-300"
+                    value=""
+                  ></button>
+                </div>
               </div>
             </div>
             <p
