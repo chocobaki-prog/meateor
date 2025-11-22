@@ -29,6 +29,7 @@ export default class App {
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
       return state.app.love.peers
+        .filter(x => x.displayName?.trim?.())
         .filter(x => !x.location || state.app.radar.distance(x.location) <= Number(this.me.radius || 0))
         .sort((a, b) => {
           if (!a.location && !b.location) return 0;
