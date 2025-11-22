@@ -6,15 +6,27 @@ export default class App {
 
   state = {
     profileCollapsed: false,
+    chat: {
+      openPeerId: null,
+      messages: {},
+      drafts: {},
+      unread: {},
+    },
     get roster() {
+      if (!state.app.love || !state.app.radar || !this.me) return [];
       return state.app.love.peers
-        .filter(x => !x.location || state.app.radar.distance(x.location) <= Number(this.me.radius))
+        .filter(x => !x.location || state.app.radar.distance(x.location) <= Number(this.me.radius || 0))
         .sort((a, b) => {
           if (!a.location && !b.location) return 0;
           if (!a.location) return 1;
           if (!b.location) return -1;
           return state.app.radar.distance(a.location) - state.app.radar.distance(b.location);
         });
+    },
+    get activeChatPeer() {
+      let peerId = this.chat && this.chat.openPeerId;
+      if (!peerId || !state.app.love) return null;
+      return state.app.love.peers.find(peer => peer.id === peerId) || null;
     },
   };
 
@@ -36,10 +48,36 @@ export default class App {
     this.state.profileCollapsed = this.isProfileComplete(this.state.me);
   };
 
+  ensureChatContainers = peerId => {
+    if (!peerId) return;
+    if (!this.state.chat.messages[peerId]) this.state.chat.messages[peerId] = [];
+    if (this.state.chat.drafts[peerId] === undefined) this.state.chat.drafts[peerId] = '';
+    if (this.state.chat.unread[peerId] === undefined) this.state.chat.unread[peerId] = 0;
+  };
+
+  appendChatMessage = (peerId, message) => {
+    if (!peerId || !message) return;
+    this.ensureChatContainers(peerId);
+    this.state.chat.messages[peerId].push(message);
+  };
+
+  handleIncomingChat = (peerId, payload) => {
+    if (!peerId || !payload) return;
+    let text = typeof payload.text === 'string' ? payload.text : '';
+    if (!text.trim()) return;
+    let timestamp = payload.timestamp || Date.now();
+    this.appendChatMessage(peerId, { direction: 'in', text, timestamp });
+    if (this.state.chat.openPeerId !== peerId) {
+      let currentUnread = this.state.chat.unread[peerId] || 0;
+      this.state.chat.unread[peerId] = currentUnread + 1;
+    }
+  };
+
   actions = {
     init: async () => {
       this.state.love = new LoveEngine({ appId: 'meateor2' }, 'gaybar');
       this.state.radar = new RadarEngine();
+      this.state.love.onChatMessage((payload, id) => this.handleIncomingChat(id, payload));
       setInterval(() => this.state.me.location = this.state.radar.location, 1000);
       this.state.me = this.state.love.me;
       let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
@@ -85,6 +123,34 @@ export default class App {
         this.persistProfile();
       };
       reader.readAsDataURL(file);
+    },
+    openChat: peerId => {
+      if (!peerId) return;
+      this.ensureChatContainers(peerId);
+      this.state.chat.openPeerId = peerId;
+      this.state.chat.unread[peerId] = 0;
+    },
+    updateChatDraft: (peerId, value) => {
+      if (!peerId) return;
+      this.ensureChatContainers(peerId);
+      this.state.chat.drafts[peerId] = value;
+    },
+    sendChatMessage: () => {
+      let peerId = this.state.chat.openPeerId;
+      if (!peerId) return;
+      this.ensureChatContainers(peerId);
+      let draft = this.state.chat.drafts[peerId] || '';
+      let text = draft.trim();
+      if (!text) return;
+      let timestamp = Date.now();
+      this.appendChatMessage(peerId, { direction: 'out', text, timestamp });
+      this.state.chat.drafts[peerId] = '';
+      if (this.state.love && this.state.love.sendDirectMessage) {
+        this.state.love.sendDirectMessage({ text, timestamp }, peerId);
+      }
+    },
+    closeChat: () => {
+      this.state.chat.openPeerId = null;
     },
   };
 }

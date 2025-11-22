@@ -276,8 +276,15 @@
             >
               <article
                 wf-map="guy of state.app.roster"
-                class="group bg-slate-900/40 border border-slate-900 rounded-3xl overflow-hidden flex flex-col"
+                class="group bg-slate-900/40 border border-slate-900 rounded-3xl overflow-hidden flex flex-col relative cursor-pointer transition ring-offset-2 ring-offset-slate-950"
+                wf-onclick="post('app.openChat', guy.id)"
+                wf-class="{{state.app.chat.unread[guy.id] &gt; 0 &amp;&amp; 'ring-2 ring-amber-400 border-amber-400'}} {{state.app.chat.openPeerId === guy.id &amp;&amp; 'ring-2 ring-emerald-400 border-emerald-400'}}"
               >
+                <span
+                  wf-if="state.app.chat.unread[guy.id] &gt; 0"
+                  class="absolute top-3 right-3 text-[0.65rem] font-semibold bg-black/70 text-amber-300 px-2 py-1 rounded-full z-10 truncate max-w-16"
+                  >{{state.app.chat.unread[guy.id]}}</span
+                >
                 <div class="relative h-48">
                   <div
                     class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent overflow-hidden"
@@ -318,6 +325,99 @@
               No one fits the current filters. Widen the radius or tribe.
             </div>
           </section>
+        </div>
+      </div>
+
+      <div
+        wf-if="state.app.chat.openPeerId"
+        class="fixed inset-0 sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[380px] sm:h-[560px] z-30"
+      >
+        <div
+          class="flex flex-col bg-slate-950/95 border border-slate-800 backdrop-blur rounded-none sm:rounded-3xl w-full h-full shadow-2xl overflow-hidden"
+          wf-if="state.app.activeChatPeer"
+        >
+          <div
+            class="relative border-b border-slate-800 p-4 flex items-start gap-3"
+          >
+            <img
+              class="w-16 h-16 rounded-2xl object-cover object-center border border-slate-800"
+              wf-src="state.app.activeChatPeer.photoUrl || 'media/placehoeder.png'"
+              src="../media/placehoeder.png"
+            />
+            <div class="flex-1">
+              <p class="text-lg font-semibold truncate">
+                {{state.app.activeChatPeer.displayName}}
+              </p>
+              <p class="text-xs text-slate-400">
+                {{state.app.activeChatPeer.age}} ·
+                {{state.app.activeChatPeer.tribe}} ·
+                {{state.app.activeChatPeer.role}}
+              </p>
+              <p class="text-xs text-slate-300 mt-2">
+                {{state.app.activeChatPeer.tagline || 'No tagline yet'}}
+              </p>
+            </div>
+            <button
+              class="text-slate-400 text-xs uppercase tracking-[0.3em]"
+              wf-onclick="post('app.closeChat')"
+              value=""
+            >
+              Close
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div
+              wf-map="message of (state.app.chat.messages[state.app.chat.openPeerId] || [])"
+              class="flex"
+              wf-class="{'justify-end': message.direction === 'out'}"
+            >
+              <div
+                class="px-4 py-2 rounded-2xl text-sm max-w-[80%]"
+                wf-class="{'bg-emerald-500 text-black rounded-br-sm': message.direction === 'out', 'bg-slate-800 text-slate-100 rounded-bl-sm': message.direction !== 'out'}"
+              >
+                <p class="whitespace-pre-wrap">{{message.text}}</p>
+                <p class="text-[0.6rem] text-slate-300 mt-1">
+                  {{new Date(message.timestamp || Date.now()).toLocaleTimeString()}}
+                </p>
+              </div>
+            </div>
+            <div
+              wf-if="!(state.app.chat.messages[state.app.chat.openPeerId] || []).length"
+              class="text-center text-xs text-slate-500 py-10"
+            >
+              No messages yet. Say hi!
+            </div>
+          </div>
+          <div class="border-t border-slate-800 p-4 flex gap-3">
+            <textarea
+              class="flex-1 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm text-white resize-none h-20"
+              placeholder="Drop a line..."
+              wf-value="state.app.chat.drafts[state.app.chat.openPeerId]"
+              value=""
+            ></textarea>
+            <button
+              class="px-4 py-3 rounded-2xl bg-emerald-400 text-black font-semibold text-sm"
+              wf-onclick="post('app.sendChatMessage')"
+              value=""
+            >
+              Send
+            </button>
+          </div>
+        </div>
+        <div
+          wf-if="!state.app.activeChatPeer"
+          class="flex flex-col bg-slate-950/95 border border-slate-800 rounded-none sm:rounded-3xl w-full h-full text-center items-center justify-center gap-4 shadow-2xl"
+        >
+          <p class="text-sm text-slate-400 px-6">
+            This player left the room. Pick someone else to keep chatting.
+          </p>
+          <button
+            class="px-4 py-2 rounded-full border border-slate-700 text-xs tracking-[0.3em]"
+            wf-onclick="post('app.closeChat')"
+            value=""
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
