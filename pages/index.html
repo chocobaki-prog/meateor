@@ -475,7 +475,10 @@
           class="absolute inset-0 bg-black/80 backdrop-blur-sm flex justify-between items-center"
           wf-onclick="post('app.closePhotoLightbox')"
         >
-          <div class="relative z-10 w-full max-w-3xl mx-auto">
+          <div
+            class="relative z-10 w-full max-w-3xl mx-auto"
+            wf-onclick="event && event.stopPropagation && event.stopPropagation()"
+          >
             <div
               class="relative rounded-3xl border border-slate-700 bg-slate-950/90 overflow-hidden"
             >
