@@ -541,7 +541,7 @@
               >
                 <div
                   wf-if="message.type === 'photo' &amp;&amp; message.photoUrl"
-                  class="overflow-hidden rounded-xl bg-black/20"
+                  class="overflow-hidden bg-black/20 rounded-md"
                 >
                   <img
                     class="max-h-64 w-full object-cover cursor-zoom-in"
@@ -551,7 +551,7 @@
                 </div>
                 <div
                   wf-if="message.type === 'pix' &amp;&amp; message.pixUrl"
-                  class="overflow-hidden rounded-xl bg-black/20"
+                  class="overflow-hidden bg-black/20 rounded-md"
                 >
                   <img class="max-h-32 w-full" wf-src="message.pixUrl" />
                 </div>
