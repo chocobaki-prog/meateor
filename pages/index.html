@@ -25,6 +25,7 @@
     >
       <div
         class="mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8 xl:w-5xl w-full"
+        wf-if="state.app.initialized"
       >
         <header class="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div class="flex-1">
@@ -93,136 +94,168 @@
             <div
               class="rounded-3xl border border-slate-900 bg-slate-900/60 p-5 flex flex-col gap-4"
             >
-              <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold">Profile edit</h2>
-                <span class="text-xs text-slate-400">Broadcasts instantly</span>
-              </div>
-              <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Display name
-                <input
-                  wf-value="state.app.me.displayName"
-                  wf-oninput="post('app.updateProfileField','displayName', _1.value)"
-                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
-                  placeholder="Name"
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h2 class="text-lg font-semibold">Profile edit</h2>
+                  <span class="text-xs text-slate-400"
+                    >Broadcasts instantly</span
+                  >
+                </div>
+                <button
+                  class="text-xs tracking-[0.3em] uppercase text-slate-400 flex items-center gap-2"
+                  wf-onclick="post('app.toggleProfileCollapsed')"
                   value=""
-                />
-              </label>
-              <div class="grid grid-cols-2 gap-4">
+                >
+                  <span wf-if="state.app.profileCollapsed">Expand</span>
+                  <span wf-if="!state.app.profileCollapsed">Collapse</span>
+                  <span
+                    class="inline-block transition-transform"
+                    wf-class="{'rotate-180': !state.app.profileCollapsed}"
+                    >^</span
+                  >
+                </button>
+              </div>
+              <p
+                wf-if="state.app.profileCollapsed"
+                class="text-xs text-slate-500 border border-dashed border-slate-700 rounded-2xl px-4 py-3"
+              >
+                Profile looks ready. Expand if you want to tweak anything.
+              </p>
+              <div
+                wf-if="!state.app.profileCollapsed"
+                class="flex flex-col gap-4"
+              >
                 <label class="text-xs uppercase tracking-widest text-slate-400"
-                  >Age
+                  >Display name
                   <input
-                    wf-value="state.app.me.age"
+                    wf-value="state.app.me.displayName"
                     class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    placeholder="Name"
+                    value=""
+                  />
+                </label>
+                <div class="grid grid-cols-2 gap-4">
+                  <label
+                    class="text-xs uppercase tracking-widest text-slate-400"
+                    >Age
+                    <input
+                      wf-value="state.app.me.age"
+                      class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                      value=""
+                    />
+                  </label>
+                  <label
+                    class="text-xs uppercase tracking-widest text-slate-400"
+                    >Role
+                    <select
+                      wf-value="state.app.me.role"
+                      class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                      value=""
+                    >
+                      <option value="Top" selected="">Top</option>
+                      <option value="Vers">Vers</option>
+                      <option value="Bottom">Bottom</option>
+                      <option value="Side">Side</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <label
+                    class="text-xs uppercase tracking-widest text-slate-400"
+                    >Tribe
+                    <select
+                      wf-value="state.app.me.tribe"
+                      class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                      value=""
+                    >
+                      <option value="Discreet" selected="">Discreet</option>
+                      <option value="Bear">Bear</option>
+                      <option value="Jock">Jock</option>
+                      <option value="Geek">Geek</option>
+                      <option value="Daddy">Daddy</option>
+                    </select>
+                  </label>
+                  <label
+                    class="text-xs uppercase tracking-widest text-slate-400"
+                    >Vibe
+                    <select
+                      wf-value="state.app.me.vibe"
+                      class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                      value=""
+                    >
+                      <option value="Online" selected="">Online</option>
+                      <option value="Looking">Looking</option>
+                      <option value="Hosting">Hosting</option>
+                      <option value="Traveling">Traveling</option>
+                      <option value="Stealth">Stealth</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Tagline
+                  <input
+                    wf-value="state.app.me.tagline"
+                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    placeholder="Say hi"
                     value=""
                   />
                 </label>
                 <label class="text-xs uppercase tracking-widest text-slate-400"
-                  >Role
-                  <select
-                    wf-value="state.app.me.role"
+                  >Looking for
+                  <input
+                    wf-value="state.app.me.lookingFor"
                     class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                    placeholder="Hang, date, etc"
                     value=""
-                  >
-                    <option value="Top" selected="">Top</option>
-                    <option value="Vers">Vers</option>
-                    <option value="Bottom">Bottom</option>
-                    <option value="Side">Side</option>
-                  </select>
-                </label>
-              </div>
-              <div class="grid grid-cols-2 gap-4">
-                <label class="text-xs uppercase tracking-widest text-slate-400"
-                  >Tribe
-                  <select
-                    wf-value="state.app.me.tribe"
-                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
-                    value=""
-                  >
-                    <option value="Discreet" selected="">Discreet</option>
-                    <option value="Bear">Bear</option>
-                    <option value="Jock">Jock</option>
-                    <option value="Geek">Geek</option>
-                    <option value="Daddy">Daddy</option>
-                  </select>
+                  />
                 </label>
                 <label class="text-xs uppercase tracking-widest text-slate-400"
-                  >Vibe
-                  <select
-                    wf-value="state.app.me.vibe"
-                    class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
+                  >Upload image
+                  <input
+                    type="file"
+                    id="meatPhotoPicker"
+                    class="mt-1 w-full rounded-2xl bg-black/10 border border-dashed border-slate-800 px-4 py-3 text-slate-300 file:text-slate-200 file:bg-transparent file:border-0"
+                    wf-onchange="post('app.pickPhoto','meatPhotoPicker')"
+                    accept="image/*"
                     value=""
-                  >
-                    <option value="Online" selected="">Online</option>
-                    <option value="Looking">Looking</option>
-                    <option value="Hosting">Hosting</option>
-                    <option value="Traveling">Traveling</option>
-                    <option value="Stealth">Stealth</option>
-                  </select>
+                  />
                 </label>
-              </div>
-              <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Tagline
-                <input
-                  wf-value="state.app.me.tagline"
-                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
-                  placeholder="Say hi"
-                  value=""
-                />
-              </label>
-              <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Looking for
-                <input
-                  wf-value="state.app.me.lookingFor"
-                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
-                  placeholder="Hang, date, etc"
-                  value=""
-                />
-              </label>
-              <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Upload image
-                <input
-                  type="file"
-                  id="meatPhotoPicker"
-                  class="mt-1 w-full rounded-2xl bg-black/10 border border-dashed border-slate-800 px-4 py-3 text-slate-300 file:text-slate-200 file:bg-transparent file:border-0"
-                  wf-onchange="post('app.pickPhoto','meatPhotoPicker')"
-                  accept="image/*"
-                  value=""
-                />
-              </label>
 
-              <div
-                class="flex items-center justify-between gap-3 text-xs text-slate-400"
-              >
-                <div>
-                  <p
-                    class="uppercase tracking-[0.3em] text-[0.6rem] text-slate-500"
-                  >
-                    Current location
-                  </p>
-                  <button
-                    class="ml-auto px-3 py-1 rounded-full border border-slate-700 text-xs font-semibold mt-2"
-                    wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.geolocation.status === 'ok'}"
-                    wf-onclick="state.app.radar.location ? state.app.radar.stop() : state.app.radar.start()"
-                    value=""
-                  >
-                    <span wf-if="state.app.radar.location">Disable GPS</span>
-                    <span wf-if="!state.app.radar.location">Use GPS</span>
-                  </button>
+                <div
+                  class="flex items-center justify-between gap-3 text-xs text-slate-400"
+                >
+                  <div>
+                    <p
+                      class="uppercase tracking-[0.3em] text-[0.6rem] text-slate-500"
+                    >
+                      Current location
+                    </p>
+                    <button
+                      class="ml-auto px-3 py-1 rounded-full border border-slate-700 text-xs font-semibold mt-2"
+                      wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.geolocation.status === 'ok'}"
+                      wf-onclick="state.app.radar.location ? state.app.radar.stop() : state.app.radar.start()"
+                      value=""
+                    >
+                      <span wf-if="state.app.radar.location">Disable GPS</span>
+                      <span wf-if="!state.app.radar.location">Use GPS</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Distance radius (Km)
-                <input
-                  type="range"
-                  min="0.1"
-                  max="200"
-                  step="0.2"
-                  wf-value="state.app.me.radius"
-                  class="mt-1 w-full"
-                  value="100.1"
-                />
-              </label>
+                <label class="text-xs uppercase tracking-widest text-slate-400"
+                  >Distance radius (Km)
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="200"
+                    step="0.2"
+                    wf-value="state.app.me.radius"
+                    wf-oninput="post('app.updateProfileField','radius', _1.value)"
+                    class="mt-1 w-full"
+                    value="100.1"
+                  />
+                </label>
+              </div>
             </div>
           </section>
 
