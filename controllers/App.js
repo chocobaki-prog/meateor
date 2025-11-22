@@ -33,6 +33,17 @@ export default class App {
   bootstrapped = false;
 
   state = {
+    ageGate: {
+      verified: storedAgeGateVerified,
+      verifying: false,
+      error: null,
+      streamActive: false,
+      resultAge: null,
+      minimumAge: 21,
+      loadingModels: false,
+      supported: ageGateSupported,
+    },
+    pix: {},
     profileCollapsed: false,
     gallery: [],
     chat: {
@@ -43,16 +54,6 @@ export default class App {
       peerDeviceIds: {},
       hydratedPeers: {},
       autoScrollEnabled: true,
-    },
-    ageGate: {
-      verified: storedAgeGateVerified,
-      verifying: false,
-      error: null,
-      streamActive: false,
-      resultAge: null,
-      minimumAge: 21,
-      loadingModels: false,
-      supported: ageGateSupported,
     },
     lightbox: {
       open: false,
@@ -486,6 +487,7 @@ export default class App {
     setInterval(() => this.state.me.location = this.state.radar.location, 1000);
     this.state.me = this.state.love.me;
     let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
+    this.state.pix = JSON.parse(localStorage.getItem('meateor:pix') || '{}');
     Object.assign(this.state.me, storedProfile || {
       displayName: '',
       vibe: 'Online',
@@ -737,6 +739,7 @@ export default class App {
         this.ageVerificationVideo = null;
       }
     },
+    savePix: () => localStorage.setItem('meateor:pix', JSON.stringify(this.state.pix)),
     toggleProfileCollapsed: () => {
       this.state.profileCollapsed = !this.state.profileCollapsed;
     },
