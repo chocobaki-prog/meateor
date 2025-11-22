@@ -1,6 +1,14 @@
 import LoveEngine from '../other/LoveEngine.js';
 import RadarEngine from '../other/RadarEngine.js';
 
+let storedAgeGateVerified = false;
+let ageGateSupported = typeof navigator !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    storedAgeGateVerified = window.localStorage.getItem('meateor:ageVerified') === '1';
+  }
+} catch (error) {}
+
 export default class App {
   profileFields = ['displayName', 'vibe', 'age', 'tribe', 'role', 'tagline', 'lookingFor', 'radius', 'photoUrl'];
   chatHistoryStorageKey = 'meateor:chatHistory';
@@ -15,6 +23,14 @@ export default class App {
   soundUnlocked = false;
   pendingPingCount = 0;
   soundUnlockInstalled = false;
+  faceApi = null;
+  faceApiLoadPromise = null;
+  faceDetectorOptions = null;
+  ageVerificationStream = null;
+  ageVerificationLoop = null;
+  ageVerificationVideo = null;
+  initRequested = false;
+  bootstrapped = false;
 
   state = {
     profileCollapsed: false,
@@ -27,6 +43,16 @@ export default class App {
       peerDeviceIds: {},
       hydratedPeers: {},
       autoScrollEnabled: true,
+    },
+    ageGate: {
+      verified: storedAgeGateVerified,
+      verifying: false,
+      error: null,
+      streamActive: false,
+      resultAge: null,
+      minimumAge: 21,
+      loadingModels: false,
+      supported: ageGateSupported,
     },
     lightbox: {
       open: false,
@@ -451,40 +477,265 @@ export default class App {
     }
   };
 
+  bootstrapApp = async () => {
+    if (this.bootstrapped) return;
+    this.bootstrapped = true;
+    this.state.love = new LoveEngine({ appId: 'meateor2' }, 'gaybar');
+    this.state.radar = new RadarEngine();
+    this.state.love.onChatMessage((payload, id) => this.handleIncomingChat(id, payload));
+    setInterval(() => this.state.me.location = this.state.radar.location, 1000);
+    this.state.me = this.state.love.me;
+    let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
+    Object.assign(this.state.me, storedProfile || {
+      displayName: '',
+      vibe: 'Online',
+      age: 21,
+      tribe: 'Discreet',
+      role: 'Vers',
+      tagline: `Let's chat!`,
+      lookingFor: `Friends & chill`,
+      radius: 100,
+    });
+    if (typeof this.state.me.counter !== 'number' || Number.isNaN(this.state.me.counter)) {
+      this.state.me.counter = 0;
+    }
+    let storedGallery = JSON.parse(localStorage.getItem('meateor:gallery') || '[]');
+    this.state.gallery = Array.isArray(storedGallery) ? storedGallery : [];
+    this.updateCollapsedFromProfile();
+    this.state.initialized = true;
+    if (this.chatHydrateInterval) clearInterval(this.chatHydrateInterval);
+    this.hydrateAllPeerChats();
+    this.refreshKnownRoster(true);
+    this.chatHydrateInterval = setInterval(() => {
+      this.hydrateAllPeerChats();
+      this.refreshKnownRoster();
+    }, 2000);
+    this.startProfileCounter();
+    this.installSoundUnlockListeners();
+  };
+
+  getFaceAssetBasePath = () => {
+    let prefix = '.';
+    if (typeof window !== 'undefined' && window.rootPrefix !== undefined && window.rootPrefix !== null) {
+      prefix = window.rootPrefix || '.';
+    }
+    if (!prefix || typeof prefix !== 'string') prefix = '.';
+    if (prefix.endsWith('/')) {
+      prefix = prefix.slice(0, -1) || '.';
+    }
+    return `${prefix}/other`;
+  };
+
+  loadFaceApiLibrary = async () => {
+    if (this.faceApi) return this.faceApi;
+    if (this.faceApiLoadPromise) return this.faceApiLoadPromise;
+    this.state.ageGate.loadingModels = true;
+    this.faceApiLoadPromise = (async () => {
+      await import('../other/face-api.js');
+      let globalFaceApi = typeof faceapi !== 'undefined' ? faceapi : null;
+      if (!globalFaceApi && typeof globalThis !== 'undefined') {
+        globalFaceApi = globalThis.faceapi || null;
+      }
+      if (!globalFaceApi && typeof window !== 'undefined') {
+        globalFaceApi = window.faceapi || null;
+      }
+      if (!globalFaceApi) throw new Error('Unable to initialize age verification library');
+      let basePath = this.getFaceAssetBasePath();
+      await Promise.all([
+        globalFaceApi.nets.tinyFaceDetector.loadFromUri(basePath),
+        globalFaceApi.nets.ageGenderNet.loadFromUri(basePath),
+      ]);
+      if (!this.faceDetectorOptions) {
+        this.faceDetectorOptions = new globalFaceApi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      }
+      return globalFaceApi;
+    })();
+    try {
+      let resolved = await this.faceApiLoadPromise;
+      this.faceApi = resolved;
+      this.state.ageGate.loadingModels = false;
+      return resolved;
+    } catch (error) {
+      this.state.ageGate.loadingModels = false;
+      this.faceApiLoadPromise = null;
+      throw error;
+    }
+  };
+
+  requestAgeVerificationStream = async () => {
+    if (this.ageVerificationStream) return this.ageVerificationStream;
+    if (!this.state.ageGate.supported) throw new Error('Camera access is not supported in this browser');
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Camera access is unavailable');
+    }
+    let stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+    });
+    this.ageVerificationStream = stream;
+    this.state.ageGate.streamActive = true;
+    let video = this.ageVerificationVideo;
+    if (!video && typeof document !== 'undefined') {
+      video = document.createElement('video');
+      video.playsInline = true;
+      video.muted = true;
+      this.ageVerificationVideo = video;
+    }
+    if (video) {
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute('autoplay', 'true');
+      let playResult = video.play();
+      if (playResult && playResult.catch) {
+        playResult.catch(() => {});
+      }
+    }
+    return stream;
+  };
+
+  clearAgeDetectionLoop = () => {
+    if (this.ageVerificationLoop) {
+      clearTimeout(this.ageVerificationLoop);
+      this.ageVerificationLoop = null;
+    }
+  };
+
+  teardownAgeVerificationStream = () => {
+    this.clearAgeDetectionLoop();
+    if (this.ageVerificationStream && this.ageVerificationStream.getTracks) {
+      this.ageVerificationStream.getTracks().forEach(track => track.stop());
+    }
+    this.ageVerificationStream = null;
+    if (this.ageVerificationVideo) {
+      try {
+        this.ageVerificationVideo.pause();
+      } catch (error) {}
+      this.ageVerificationVideo.srcObject = null;
+    }
+    this.state.ageGate.streamActive = false;
+  };
+
+  cancelAgeVerificationProcess = () => {
+    this.state.ageGate.verifying = false;
+    this.teardownAgeVerificationStream();
+  };
+
+  runAgeDetection = async () => {
+    if (!this.state.ageGate.verifying) return;
+    if (!this.ageVerificationVideo) {
+      this.ageVerificationLoop = setTimeout(() => this.runAgeDetection(), 500);
+      return;
+    }
+    let faceApiInstance;
+    try {
+      faceApiInstance = await this.loadFaceApiLibrary();
+    } catch (error) {
+      this.state.ageGate.error = error && error.message ? error.message : 'Unable to load verification models';
+      this.cancelAgeVerificationProcess();
+      return;
+    }
+    if (!this.state.ageGate.verifying) return;
+    try {
+      if (!this.faceDetectorOptions && faceApiInstance && faceApiInstance.TinyFaceDetectorOptions) {
+        this.faceDetectorOptions = new faceApiInstance.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+      }
+      let detectorOptions = this.faceDetectorOptions || (faceApiInstance && faceApiInstance.TinyFaceDetectorOptions ? new faceApiInstance.TinyFaceDetectorOptions() : null);
+      if (!detectorOptions) throw new Error('Unable to configure face detector');
+      let detectionResult = await faceApiInstance
+        .detectSingleFace(this.ageVerificationVideo, detectorOptions)
+        .withAgeAndGender();
+      if (!detectionResult) {
+        this.state.ageGate.error = 'We could not detect your face. Stay centered in good light.';
+        if (this.state.ageGate.verifying) {
+          this.ageVerificationLoop = setTimeout(() => this.runAgeDetection(), 1200);
+        }
+        return;
+      }
+      let detectedAge = Number(detectionResult.age);
+      if (!Number.isNaN(detectedAge)) {
+        this.state.ageGate.resultAge = detectedAge;
+        if (detectedAge >= this.state.ageGate.minimumAge) {
+          this.finishAgeVerification(detectedAge);
+          return;
+        }
+        this.state.ageGate.error = `Detected age ${Math.round(detectedAge)} is below the required ${this.state.ageGate.minimumAge}.`;
+      } else {
+        this.state.ageGate.error = 'Hold still so we can confirm your age.';
+      }
+    } catch (error) {
+      this.state.ageGate.error = error && error.message ? error.message : 'Unable to analyze camera feed';
+    }
+    if (this.state.ageGate.verifying) {
+      this.ageVerificationLoop = setTimeout(() => this.runAgeDetection(), 1200);
+    }
+  };
+
+  finishAgeVerification = age => {
+    this.state.ageGate.error = null;
+    this.state.ageGate.resultAge = age;
+    this.state.ageGate.verifying = false;
+    this.state.ageGate.verified = true;
+    this.teardownAgeVerificationStream();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('meateor:ageVerified', '1');
+        window.localStorage.setItem('meateor:ageVerifiedAge', String(Math.round(age)));
+      }
+    } catch (error) {}
+    if (this.initRequested) {
+      this.bootstrapApp();
+    }
+  };
+
   actions = {
     init: async () => {
-      this.state.love = new LoveEngine({ appId: 'meateor2' }, 'gaybar');
-      this.state.radar = new RadarEngine();
-      this.state.love.onChatMessage((payload, id) => this.handleIncomingChat(id, payload));
-      setInterval(() => this.state.me.location = this.state.radar.location, 1000);
-      this.state.me = this.state.love.me;
-      let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
-      Object.assign(this.state.me, storedProfile || {
-        displayName: '',
-        vibe: 'Online',
-        age: 21,
-        tribe: 'Discreet',
-        role: 'Vers',
-        tagline: `Let's chat!`,
-        lookingFor: `Friends & chill`,
-        radius: 100,
-      });
-      if (typeof this.state.me.counter !== 'number' || Number.isNaN(this.state.me.counter)) {
-        this.state.me.counter = 0;
+      this.initRequested = true;
+      if (!this.state.ageGate.verified) return;
+      await this.bootstrapApp();
+    },
+    startAgeVerification: async () => {
+      if (this.state.ageGate.verified || this.state.ageGate.verifying) return;
+      if (!this.state.ageGate.supported) {
+        this.state.ageGate.error = 'Camera access is required for verification.';
+        return;
       }
-      let storedGallery = JSON.parse(localStorage.getItem('meateor:gallery') || '[]');
-      this.state.gallery = Array.isArray(storedGallery) ? storedGallery : [];
-      this.updateCollapsedFromProfile();
-      this.state.initialized = true;
-      if (this.chatHydrateInterval) clearInterval(this.chatHydrateInterval);
-      this.hydrateAllPeerChats();
-      this.refreshKnownRoster(true);
-      this.chatHydrateInterval = setInterval(() => {
-        this.hydrateAllPeerChats();
-        this.refreshKnownRoster();
-      }, 2000);
-      this.startProfileCounter();
-      this.installSoundUnlockListeners();
+      this.state.ageGate.error = null;
+      this.state.ageGate.resultAge = null;
+      this.state.ageGate.verifying = true;
+      try {
+        await this.requestAgeVerificationStream();
+        await this.loadFaceApiLibrary();
+        this.runAgeDetection();
+      } catch (error) {
+        this.state.ageGate.error = error && error.message ? error.message : 'Unable to start age verification';
+        this.cancelAgeVerificationProcess();
+      }
+    },
+    cancelAgeVerification: () => {
+      this.cancelAgeVerificationProcess();
+    },
+    attachAgeVideo: element => {
+      if (!element) return;
+      this.ageVerificationVideo = element;
+      this.ageVerificationVideo.muted = true;
+      this.ageVerificationVideo.playsInline = true;
+      this.ageVerificationVideo.setAttribute('autoplay', 'true');
+      if (this.ageVerificationStream) {
+        element.srcObject = this.ageVerificationStream;
+        let playResult = element.play();
+        if (playResult && playResult.catch) {
+          playResult.catch(() => {});
+        }
+      }
+    },
+    detachAgeVideo: element => {
+      if (this.ageVerificationVideo === element) {
+        if (!this.state.ageGate.verified) {
+          this.cancelAgeVerificationProcess();
+        }
+        this.ageVerificationVideo = null;
+      }
     },
     toggleProfileCollapsed: () => {
       this.state.profileCollapsed = !this.state.profileCollapsed;

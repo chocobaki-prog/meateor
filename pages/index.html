@@ -26,8 +26,110 @@
       wf-onclick="post('app.enablePingAudio')"
     >
       <div
-        class="mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8 xl:w-5xl w-full"
+        class="mx-auto px-4 sm:px-6 py-10 gfont-Urbanist w-full max-w-2xl flex flex-col gap-6"
+        wf-if="!state.app.ageGate.verified"
+      >
+        <div class="space-y-2">
+          <p class="text-xs uppercase tracking-[0.4em] text-amber-400">
+            Age verification
+          </p>
+          <h1 class="text-3xl font-black leading-tight">
+            Prove you're {{state.app.ageGate.minimumAge}}+ to enter MEATEOR
+          </h1>
+          <p class="text-sm text-slate-400">
+            We run @vladmandic/human fully in-browser to estimate your age using
+            the camera feed. Nothing ever leaves your device.
+          </p>
+        </div>
+        <div
+          class="relative rounded-3xl overflow-hidden border border-slate-900 bg-slate-900/80 shadow-2xl"
+        >
+          <video
+            autoplay=""
+            muted=""
+            playsinline=""
+            class="block w-full h-72 object-cover bg-black/60"
+            wf-onattach="post('app.attachAgeVideo', _1)"
+            wf-ondetach="post('app.detachAgeVideo', _1)"
+          ></video>
+          <div
+            class="absolute top-4 right-4 flex items-center gap-2 text-xs font-semibold"
+          >
+            <span
+              class="h-2.5 w-2.5 rounded-full"
+              wf-class="{{state.app.ageGate.streamActive ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}}"
+            ></span>
+            <span>
+              <span wf-if="state.app.ageGate.streamActive">Camera live</span>
+              <span wf-if="!state.app.ageGate.streamActive">Camera idle</span>
+            </span>
+          </div>
+          <div
+            class="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/60 to-transparent flex items-end"
+          >
+            <p class="p-4 text-sm text-slate-100">
+              <span wf-if="state.app.ageGate.verifying"
+                >Hold steady while we confirm your age.</span
+              >
+              <span wf-if="!state.app.ageGate.verifying"
+                >Tap start to activate your camera.</span
+              >
+            </p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <p
+            class="text-sm text-emerald-400"
+            wf-if="state.app.ageGate.resultAge"
+          >
+            Latest estimate: {{Math.round(state.app.ageGate.resultAge)}} years
+            old
+          </p>
+          <p
+            class="text-sm text-amber-300"
+            wf-if="state.app.ageGate.loadingModels"
+          >
+            Loading @vladmandic/human models—this runs entirely on your device.
+          </p>
+          <p class="text-sm text-rose-400" wf-if="state.app.ageGate.error">
+            {{state.app.ageGate.error}}
+          </p>
+          <p class="text-sm text-rose-400" wf-if="!state.app.ageGate.supported">
+            Your browser must allow camera access to verify age.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            class="bg-emerald-400 text-black font-semibold px-5 py-3 rounded-full text-sm tracking-wide"
+            wf-if="!state.app.ageGate.verifying &amp;&amp; state.app.ageGate.supported"
+            wf-onclick="post('app.startAgeVerification')"
+            value=""
+          >
+            Start verification
+          </button>
+          <button
+            class="bg-slate-800 border border-slate-600 text-white font-semibold px-5 py-3 rounded-full text-sm tracking-wide"
+            wf-if="state.app.ageGate.verifying"
+            wf-onclick="post('app.cancelAgeVerification')"
+            value=""
+          >
+            Stop camera
+          </button>
+          <p class="text-xs text-slate-500">
+            Verification is required once per device and kept locally.
+          </p>
+        </div>
+      </div>
+      <div
+        wf-if="state.app.ageGate.verified &amp;&amp; !state.app.initialized"
+        class="mx-auto px-4 sm:px-6 py-8 gfont-Urbanist w-full max-w-xl text-center text-slate-400"
+      >
+        <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Loading</p>
+        <p class="text-2xl font-semibold mt-2">Building your roster...</p>
+      </div>
+      <div
         wf-if="state.app.initialized"
+        class="mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8 xl:w-5xl w-full"
       >
         <header class="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div class="flex-1">
