@@ -377,8 +377,9 @@
                   class="overflow-hidden rounded-xl bg-black/20"
                 >
                   <img
-                    class="max-h-64 w-full object-cover"
+                    class="max-h-64 w-full object-cover cursor-zoom-in"
                     wf-src="message.photoUrl"
+                    wf-onclick="post('app.openPhotoLightbox', state.app.chat.openPeerId, message.timestamp, message.direction, message.photoUrl)"
                   />
                 </div>
                 <p class="" wf-if="message.text">{{message.text}}</p>
@@ -463,6 +464,71 @@
           >
             Close
           </button>
+        </div>
+      </div>
+      <div
+        wf-if="state.app.lightbox.open"
+        class="fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
+        hidden=""
+      >
+        <div
+          class="absolute inset-0 bg-black/80 backdrop-blur-sm flex justify-between items-center"
+          wf-onclick="post('app.closePhotoLightbox')"
+        >
+          <div class="relative z-10 w-full max-w-3xl mx-auto">
+            <div
+              class="relative rounded-3xl border border-slate-700 bg-slate-950/90 overflow-hidden"
+            >
+              <img
+                class="w-full max-h-[80vh] object-contain bg-black/40"
+                wf-src="(state.app.lightbox.photos[state.app.lightbox.activeIndex] &amp;&amp; state.app.lightbox.photos[state.app.lightbox.activeIndex].photoUrl) || 'media/placehoeder.png'"
+                src="../media/placehoeder.png"
+              />
+              <button
+                class="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/60 text-xs uppercase tracking-[0.3em] text-white"
+                wf-onclick="post('app.closePhotoLightbox')"
+                value=""
+              >
+                Close
+              </button>
+              <button
+                class="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl"
+                wf-onclick="post('app.prevPhotoLightbox')"
+                value=""
+              >
+                ‹
+              </button>
+              <button
+                class="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 text-white w-10 h-10 rounded-full flex items-center justify-center text-2xl"
+                wf-onclick="post('app.nextPhotoLightbox')"
+                value=""
+              >
+                ›
+              </button>
+            </div>
+            <div
+              class="mt-4 flex items-center justify-between text-slate-200 text-xs uppercase tracking-[0.3em]"
+            >
+              <button
+                class="px-4 py-2 rounded-full border border-slate-600"
+                wf-onclick="post('app.prevPhotoLightbox')"
+                value=""
+              >
+                Previous
+              </button>
+              <p class="text-slate-400 tracking-normal truncate max-w-96">
+                Photo {{(state.app.lightbox.photos.length ? state.app.lightbox.activeIndex + 1 : 0)}} /
+                {{state.app.lightbox.photos.length || 0}}
+              </p>
+              <button
+                class="px-4 py-2 rounded-full border border-slate-600"
+                wf-onclick="post('app.nextPhotoLightbox')"
+                value=""
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

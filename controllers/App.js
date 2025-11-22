@@ -18,6 +18,13 @@ export default class App {
       peerDeviceIds: {},
       hydratedPeers: {},
     },
+    lightbox: {
+      open: false,
+      peerId: null,
+      direction: null,
+      photos: [],
+      activeIndex: 0,
+    },
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
       return state.app.love.peers
@@ -151,6 +158,39 @@ export default class App {
     this.saveUnreadCountsMap(counts);
   };
 
+  resetLightboxState = () => {
+    this.state.lightbox.open = false;
+    this.state.lightbox.peerId = null;
+    this.state.lightbox.direction = null;
+    this.state.lightbox.activeIndex = 0;
+    this.state.lightbox.photos = [];
+  };
+
+  getPhotoMessagesForPeer = (peerId, direction) => {
+    if (!peerId) return [];
+    this.ensureChatContainers(peerId);
+    let filterDirection = direction === 'out' ? 'out' : 'in';
+    let messages = Array.isArray(this.state.chat.messages[peerId]) ? this.state.chat.messages[peerId] : [];
+    return messages.filter(entry => entry && entry.type === 'photo' && entry.photoUrl && entry.direction === filterDirection);
+  };
+
+  syncLightboxForPeer = peerId => {
+    if (!this.state.lightbox || !this.state.lightbox.open) return;
+    if (!peerId || this.state.lightbox.peerId !== peerId) return;
+    let direction = this.state.lightbox.direction;
+    if (!direction) return;
+    let photos = this.getPhotoMessagesForPeer(peerId, direction);
+    if (!photos.length) {
+      this.resetLightboxState();
+      return;
+    }
+    let nextIndex = this.state.lightbox.activeIndex;
+    if (nextIndex >= photos.length) nextIndex = photos.length - 1;
+    if (nextIndex < 0) nextIndex = 0;
+    this.state.lightbox.photos = photos;
+    this.state.lightbox.activeIndex = nextIndex;
+  };
+
   getMessageKey = entry => {
     if (!entry) return '';
     let direction = entry.direction === 'out' ? 'out' : 'in';
@@ -237,6 +277,7 @@ export default class App {
     };
     this.state.chat.messages[peerId].push(entry);
     this.persistChatHistoryEntry(peerId, entry);
+    if (entry.type === 'photo') this.syncLightboxForPeer(peerId);
   };
 
   handleIncomingChat = (peerId, payload) => {
@@ -352,6 +393,7 @@ export default class App {
     },
     closeChat: () => {
       this.state.chat.openPeerId = null;
+      this.resetLightboxState();
     },
     uploadChatPhoto: inputId => {
       let input = document.getElementById(inputId);
@@ -371,6 +413,49 @@ export default class App {
       if (!dataUrl) return;
       this.addPhotoToGallery(dataUrl);
       this.sendPhotoMessage(dataUrl);
+    },
+    openPhotoLightbox: (peerId, timestamp, direction, photoUrl) => {
+      if (!peerId) return;
+      this.ensureChatContainers(peerId);
+      let filterDirection = direction === 'out' ? 'out' : 'in';
+      let photos = this.getPhotoMessagesForPeer(peerId, filterDirection);
+      if (!photos.length) return;
+      let targetTimestamp = typeof timestamp === 'number' ? timestamp : null;
+      let targetPhoto = typeof photoUrl === 'string' ? photoUrl : null;
+      let startIndex = photos.findIndex(entry => {
+        if (targetTimestamp && entry.timestamp === targetTimestamp) return true;
+        if (targetPhoto && entry.photoUrl === targetPhoto) return true;
+        return false;
+      });
+      if (startIndex === -1) startIndex = 0;
+      this.state.lightbox.open = true;
+      this.state.lightbox.peerId = peerId;
+      this.state.lightbox.direction = filterDirection;
+      this.state.lightbox.activeIndex = startIndex;
+      this.state.lightbox.photos = photos;
+    },
+    closePhotoLightbox: () => {
+      this.resetLightboxState();
+    },
+    nextPhotoLightbox: () => {
+      if (!this.state.lightbox || !this.state.lightbox.open) return;
+      let photos = Array.isArray(this.state.lightbox.photos) ? this.state.lightbox.photos : [];
+      if (!photos.length) {
+        this.resetLightboxState();
+        return;
+      }
+      let nextIndex = (this.state.lightbox.activeIndex + 1) % photos.length;
+      this.state.lightbox.activeIndex = nextIndex;
+    },
+    prevPhotoLightbox: () => {
+      if (!this.state.lightbox || !this.state.lightbox.open) return;
+      let photos = Array.isArray(this.state.lightbox.photos) ? this.state.lightbox.photos : [];
+      if (!photos.length) {
+        this.resetLightboxState();
+        return;
+      }
+      let nextIndex = (this.state.lightbox.activeIndex - 1 + photos.length) % photos.length;
+      this.state.lightbox.activeIndex = nextIndex;
     },
   };
 }
