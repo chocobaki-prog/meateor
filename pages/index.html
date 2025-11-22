@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>MEAT • Grindr clone</title>
+    <title></title>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1"
@@ -29,7 +29,7 @@
         <header class="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div class="flex-1">
             <p class="text-xs uppercase tracking-[0.4em] text-amber-400">
-              MEAT
+              MEATEOR
             </p>
             <h1 class="text-4xl font-black mt-2 leading-tight">
               Grinder—looking for meat!
@@ -269,7 +269,7 @@
                       </p>
                     </div>
                     <span class="text-xs text-slate-300 truncate"
-                      >{{guy.distance ? guy.distance.toFixed(1) + ' Km' : 'Somewhere'}}</span
+                      >{{guy.location &amp;&amp; state.app.me.location ? state.app.radar.distance(guy.location).toFixed(1) + ' Km' : 'Somewhere'}}</span
                     >
                   </div>
                 </div>
