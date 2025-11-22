@@ -3,7 +3,16 @@ import RadarEngine from '../other/RadarEngine.js';
 
 export default class App {
   state = {
-    get roster() { return state.app.love.peers.filter(x => state.app.radar.distance(x.location) <= Number(this.me.radius)) },
+    get roster() {
+      return state.app.love.peers
+        .filter(x => !x.location || state.app.radar.distance(x.location) <= Number(this.me.radius))
+        .sort((a, b) => {
+          if (!a.location && !b.location) return 0;
+          if (!a.location) return 1;
+          if (!b.location) return -1;
+          return state.app.radar.distance(a.location) - state.app.radar.distance(b.location);
+        });
+    },
   };
 
   actions = {
