@@ -6,6 +6,7 @@ export default class App {
 
   state = {
     profileCollapsed: false,
+    gallery: [],
     chat: {
       openPeerId: null,
       messages: {},
@@ -44,8 +45,23 @@ export default class App {
     localStorage.setItem('meateor:profile', JSON.stringify(this.state.me));
   };
 
+  persistGallery = () => {
+    let gallery = Array.isArray(this.state.gallery) ? this.state.gallery : [];
+    localStorage.setItem('meateor:gallery', JSON.stringify(gallery));
+  };
+
   updateCollapsedFromProfile = () => {
     this.state.profileCollapsed = this.isProfileComplete(this.state.me);
+  };
+
+  addPhotoToGallery = dataUrl => {
+    if (!dataUrl) return;
+    if (!Array.isArray(this.state.gallery)) this.state.gallery = [];
+    let existingIndex = this.state.gallery.indexOf(dataUrl);
+    if (existingIndex !== -1) this.state.gallery.splice(existingIndex, 1);
+    this.state.gallery.unshift(dataUrl);
+    if (this.state.gallery.length > 30) this.state.gallery.splice(30);
+    this.persistGallery();
   };
 
   ensureChatContainers = peerId => {
@@ -58,18 +74,41 @@ export default class App {
   appendChatMessage = (peerId, message) => {
     if (!peerId || !message) return;
     this.ensureChatContainers(peerId);
-    this.state.chat.messages[peerId].push(message);
+    let entry = {
+      direction: message.direction,
+      type: message.type || (message.photoUrl ? 'photo' : 'text'),
+      text: message.text,
+      photoUrl: message.photoUrl,
+      timestamp: message.timestamp || Date.now(),
+    };
+    this.state.chat.messages[peerId].push(entry);
   };
 
   handleIncomingChat = (peerId, payload) => {
     if (!peerId || !payload) return;
+    let type = payload.type || (payload.dataUrl ? 'photo' : 'text');
     let text = typeof payload.text === 'string' ? payload.text : '';
-    if (!text.trim()) return;
+    if (type === 'text' && !text.trim()) return;
+    if (type === 'photo' && !payload.dataUrl) return;
     let timestamp = payload.timestamp || Date.now();
-    this.appendChatMessage(peerId, { direction: 'in', text, timestamp });
+    let message = { direction: 'in', type, timestamp };
+    if (type === 'photo') message.photoUrl = payload.dataUrl;
+    else message.text = text;
+    this.appendChatMessage(peerId, message);
     if (this.state.chat.openPeerId !== peerId) {
       let currentUnread = this.state.chat.unread[peerId] || 0;
       this.state.chat.unread[peerId] = currentUnread + 1;
+    }
+  };
+
+  sendPhotoMessage = dataUrl => {
+    if (!dataUrl) return;
+    let peerId = this.state.chat.openPeerId;
+    if (!peerId) return;
+    let timestamp = Date.now();
+    this.appendChatMessage(peerId, { direction: 'out', type: 'photo', photoUrl: dataUrl, timestamp });
+    if (this.state.love && this.state.love.sendDirectMessage) {
+      this.state.love.sendDirectMessage({ type: 'photo', dataUrl, timestamp }, peerId);
     }
   };
 
@@ -91,6 +130,8 @@ export default class App {
         lookingFor: `Friends & chill`,
         radius: 100,
       });
+      let storedGallery = JSON.parse(localStorage.getItem('meateor:gallery') || '[]');
+      this.state.gallery = Array.isArray(storedGallery) ? storedGallery : [];
       this.updateCollapsedFromProfile();
       this.state.initialized = true;
     },
@@ -143,14 +184,33 @@ export default class App {
       let text = draft.trim();
       if (!text) return;
       let timestamp = Date.now();
-      this.appendChatMessage(peerId, { direction: 'out', text, timestamp });
+      this.appendChatMessage(peerId, { direction: 'out', type: 'text', text, timestamp });
       this.state.chat.drafts[peerId] = '';
       if (this.state.love && this.state.love.sendDirectMessage) {
-        this.state.love.sendDirectMessage({ text, timestamp }, peerId);
+        this.state.love.sendDirectMessage({ type: 'text', text, timestamp }, peerId);
       }
     },
     closeChat: () => {
       this.state.chat.openPeerId = null;
+    },
+    uploadChatPhoto: inputId => {
+      let input = document.getElementById(inputId);
+      if (!input || !input.files || !input.files[0]) return;
+      let file = input.files[0];
+      let reader = new FileReader();
+      reader.onload = () => {
+        let dataUrl = reader.result;
+        if (!dataUrl) return;
+        this.addPhotoToGallery(dataUrl);
+        this.sendPhotoMessage(dataUrl);
+        input.value = '';
+      };
+      reader.readAsDataURL(file);
+    },
+    sendChatPhotoFromGallery: dataUrl => {
+      if (!dataUrl) return;
+      this.addPhotoToGallery(dataUrl);
+      this.sendPhotoMessage(dataUrl);
     },
   };
 }

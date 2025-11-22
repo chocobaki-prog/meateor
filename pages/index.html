@@ -372,10 +372,21 @@
               wf-class="{'justify-end': message.direction === 'out'}"
             >
               <div
-                class="px-4 py-2 rounded-2xl text-sm max-w-[80%]"
+                class="px-4 py-2 rounded-2xl text-sm max-w-[80%] flex flex-col gap-1"
                 wf-class="{'bg-emerald-500 text-black rounded-br-sm': message.direction === 'out', 'bg-slate-800 text-slate-100 rounded-bl-sm': message.direction !== 'out'}"
               >
-                <p class="whitespace-pre-wrap">{{message.text}}</p>
+                <div
+                  wf-if="message.type === 'photo' &amp;&amp; message.photoUrl"
+                  class="overflow-hidden rounded-xl bg-black/20"
+                >
+                  <img
+                    class="max-h-64 w-full object-cover"
+                    wf-src="message.photoUrl"
+                  />
+                </div>
+                <p class="whitespace-pre-wrap" wf-if="message.text">
+                  {{message.text}}
+                </p>
                 <p class="text-[0.6rem] text-slate-300 mt-1">
                   {{new Date(message.timestamp || Date.now()).toLocaleTimeString()}}
                 </p>
@@ -388,20 +399,59 @@
               No messages yet. Say hi!
             </div>
           </div>
-          <div class="border-t border-slate-800 p-4 flex gap-3">
-            <textarea
-              class="flex-1 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm text-white resize-none h-20"
-              placeholder="Drop a line..."
-              wf-value="state.app.chat.drafts[state.app.chat.openPeerId]"
+          <div class="border-t border-slate-800 p-4 flex flex-col gap-4">
+            <div class="flex gap-3 flex-wrap">
+              <textarea
+                class="flex-1 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm text-white resize-none h-24"
+                placeholder="Drop a line..."
+                wf-value="state.app.chat.drafts[state.app.chat.openPeerId]"
+                wf-oninput="post('app.updateChatDraft', state.app.chat.openPeerId, _1.value)"
+                value=""
+              ></textarea>
+              <div class="flex flex-col gap-2">
+                <button
+                  class="px-4 py-3 rounded-2xl bg-emerald-400 text-black font-semibold text-sm"
+                  wf-onclick="post('app.sendChatMessage')"
+                  value=""
+                >
+                  Send
+                </button>
+                <label
+                  for="chatPhotoUpload"
+                  class="px-4 py-3 rounded-2xl border border-slate-700 text-xs uppercase tracking-[0.3em] text-slate-300 text-center cursor-pointer"
+                >
+                  Upload
+                </label>
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div
+                class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-[0.2em]"
+              >
+                <span>Your gallery</span>
+              </div>
+              <div
+                wf-if="state.app.gallery.length"
+                class="flex gap-2 overflow-x-auto pb-1"
+              >
+                <button
+                  wf-map="photo of state.app.gallery"
+                  class="w-16 h-16 rounded-xl border border-slate-700 overflow-hidden shrink-0 bg-black/40"
+                  wf-onclick="post('app.sendChatPhotoFromGallery', photo)"
+                  value=""
+                >
+                  <img class="w-full h-full object-cover" wf-src="photo" />
+                </button>
+              </div>
+            </div>
+            <input
+              type="file"
+              id="chatPhotoUpload"
+              class="hidden"
+              wf-onchange="post('app.uploadChatPhoto','chatPhotoUpload')"
+              accept="image/*"
               value=""
-            ></textarea>
-            <button
-              class="px-4 py-3 rounded-2xl bg-emerald-400 text-black font-semibold text-sm"
-              wf-onclick="post('app.sendChatMessage')"
-              value=""
-            >
-              Send
-            </button>
+            />
           </div>
         </div>
         <div
