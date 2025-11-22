@@ -21,7 +21,7 @@ export default class App {
       this.state.radar = new RadarEngine();
       setInterval(() => this.state.me.location = this.state.radar.location, 1000);
       this.state.me = this.state.love.me;
-      Object.assign(this.state.me, {
+      Object.assign(this.state.me, JSON.parse(localStorage.getItem('meateor:profile') || 'null') || {
         displayName: 'You',
         vibe: 'Online',
         age: 18,

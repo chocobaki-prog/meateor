@@ -1,4 +1,8 @@
 export default class RadarEngine {
+  constructor() {
+    if (localStorage.getItem('meateor:gps')) this.start();
+  }
+
   async start() {
     await new Promise((pres, prej) => navigator.geolocation.getCurrentPosition(pres, prej, { enableHighAccuracy: true }));
     this.interval = setInterval(() => {
@@ -8,11 +12,13 @@ export default class RadarEngine {
         { enableHighAccuracy: true },
       );
     }, 1000);
+    localStorage.setItem('meateor:gps', 1);
   }
 
   stop() {
     clearInterval(this.interval);
     this.location = null;
+    localStorage.removeItem('meateor:gps');
     d.update();
   }
 
