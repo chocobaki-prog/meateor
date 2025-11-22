@@ -113,7 +113,7 @@
                     {{state.app.me.tagline}}
                   </p>
                   <div
-                    class="flex items-center gap-2 mt-4 text-xs text-slate-400"
+                    class="flex flex-wrap items-center gap-3 mt-4 text-xs text-slate-400"
                   >
                     <span class="inline-flex items-center gap-1"
                       ><span class="h-2 w-2 rounded-full bg-lime-400"></span
@@ -121,7 +121,26 @@
                     >
                     <span>•</span>
                     <span>{{state.app.me.lookingFor}}</span>
+                    <button
+                      class="ml-auto px-3 py-1 rounded-full border border-slate-700 text-xs font-semibold"
+                      wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.geolocation.status === 'ok'}"
+                      wf-onclick="post('app.useGeolocation')"
+                      value=""
+                    >
+                      <span wf-if="state.app.geolocation.status === 'ok'"
+                        >GPS locked</span
+                      >
+                      <span wf-if="state.app.geolocation.status !== 'ok'"
+                        >Use GPS</span
+                      >
+                    </button>
                   </div>
+                  <p
+                    class="text-[0.65rem] uppercase tracking-widest text-slate-500 mt-1"
+                    wf-if="state.app.geolocation.message"
+                  >
+                    {{state.app.geolocation.message}}
+                  </p>
                   <div class="flex flex-wrap gap-2 mt-4">
                     <span
                       class="text-xs uppercase tracking-wider border border-white/20 rounded-full px-3 py-1"
@@ -243,27 +262,49 @@
                 />
               </label>
               <label class="text-xs uppercase tracking-widest text-slate-400"
-                >Photo URL
-                <input
-                  wf-value="state.app.me.photoUrl"
-                  wf-oninput="post('app.updateProfileField','photoUrl', _1.value)"
-                  class="mt-1 w-full rounded-2xl bg-black/40 border border-slate-800 px-4 py-3 text-white"
-                  placeholder="https://..."
-                  value=""
-                />
-              </label>
-              <label class="text-xs uppercase tracking-widest text-slate-400"
                 >Upload image
                 <input
                   type="file"
+                  id="meatPhotoPicker"
                   class="mt-1 w-full rounded-2xl bg-black/10 border border-dashed border-slate-800 px-4 py-3 text-slate-300 file:text-slate-200 file:bg-transparent file:border-0"
-                  value=""
-                  wf-onchange="post('app.pickPhoto', _1.files &amp;&amp; _1.files[0])"
+                  wf-onchange="post('app.pickPhoto','meatPhotoPicker')"
                   accept="image/*"
+                  value=""
                 />
               </label>
               <p class="text-xs text-slate-500">
                 Stored locally in this browser and broadcast as a data URL.
+              </p>
+              <div
+                class="flex items-center justify-between gap-3 text-xs text-slate-400"
+              >
+                <div>
+                  <p
+                    class="uppercase tracking-[0.3em] text-[0.6rem] text-slate-500"
+                  >
+                    Current location
+                  </p>
+                  <p class="text-base text-white">{{state.app.me.location}}</p>
+                </div>
+                <button
+                  class="px-3 py-2 rounded-full border border-slate-700"
+                  wf-class="{'bg-emerald-400 text-black border-emerald-400': state.app.geolocation.status === 'ok'}"
+                  wf-onclick="post('app.useGeolocation')"
+                  value=""
+                >
+                  <span wf-if="state.app.geolocation.status === 'ok'"
+                    >GPS locked</span
+                  >
+                  <span wf-if="state.app.geolocation.status !== 'ok'"
+                    >Use GPS</span
+                  >
+                </button>
+              </div>
+              <p
+                class="text-xs text-slate-500"
+                wf-if="state.app.geolocation.message"
+              >
+                {{state.app.geolocation.message}}
               </p>
               <label class="text-xs uppercase tracking-widest text-slate-400"
                 >Distance radius (mi)
@@ -402,6 +443,7 @@
                   class="px-3 py-2 rounded-full bg-amber-400 text-black text-xs uppercase tracking-widest"
                   wf-onclick="post('app.sendHello', state.app.visibleRoster[0]?.peerId || state.app.visibleRoster[0]?.userId)"
                   value=""
+                  wf-class="{{!state.app.visibleRoster.length &amp;&amp; 'opacity-40 pointer-events-none'}}"
                 >
                   Tap first
                 </button>
@@ -417,10 +459,10 @@
                 class="group bg-slate-900/40 border border-slate-900 rounded-3xl overflow-hidden flex flex-col"
               >
                 <div class="relative h-48">
-                  <div
-                    class="absolute inset-0"
-                    wf-style="{'background-image': 'url(' + (guy.photoUrl || '') + ')', 'background-size': 'cover', 'background-position': 'center'}"
-                  ></div>
+                  <img
+                    class="absolute inset-0 object-cover object-center w-full h-full"
+                    wf-src="guy.photoUrl"
+                  />
                   <div
                     class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"
                   ></div>

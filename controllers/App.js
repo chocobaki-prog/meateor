@@ -15,6 +15,7 @@ export default class App {
       photoUrl: 'https://images.unsplash.com/photo-1463453091185-61582044d556?auto=format&fit=crop&w=600&q=80',
       colorway: 'from-amber-400/40 to-transparent',
       updatedAt: Date.now(),
+      coords: null,
     },
     roster: [],
     visibleRoster: [],
@@ -36,6 +37,11 @@ export default class App {
       lastEvent: '',
     },
     lastWave: null,
+    geolocation: {
+      status: 'idle',
+      message: '',
+      coords: null,
+    },
   };
 
   constructor() {
@@ -78,7 +84,14 @@ export default class App {
       let dist = Number(this.state.me.distance);
       if (!Number.isFinite(dist)) dist = 1.2;
       this.state.me.distance = dist;
-      this.state.me.location = dist.toFixed(1) + ' mi nearby';
+      if (!this.state.me.location) {
+        this.state.me.location = dist.toFixed(1) + ' mi nearby';
+      }
+      if (this.state.me.coords) {
+        this.state.geolocation.coords = { ...this.state.me.coords };
+        this.state.geolocation.status = 'cached';
+        this.state.geolocation.message = 'Using saved fix';
+      }
     } catch (err) {}
   }
 
@@ -88,6 +101,7 @@ export default class App {
       let snapshot = {
         ...this.state.me,
         hashtags: [...(this.state.me.hashtags || [])],
+        coords: this.state.me.coords ? { ...this.state.me.coords } : null,
       };
       this.storage.setItem(this.profileStorageKey, JSON.stringify(snapshot));
     } catch (err) {}
@@ -96,6 +110,29 @@ export default class App {
   startBeacon() {
     if (this.beacon) clearInterval(this.beacon);
     this.beacon = setInterval(() => this.broadcastProfile(true), 2000);
+  }
+
+  applyCoordinates(coords) {
+    if (!coords) return;
+    this.state.me.coords = {
+      lat: coords.latitude,
+      lon: coords.longitude,
+      accuracy: coords.accuracy,
+    };
+    this.state.geolocation.coords = { ...this.state.me.coords };
+    this.state.me.location = this.describeCoords(this.state.me.coords);
+    this.state.me.updatedAt = Date.now();
+    this.persistProfile();
+    this.scheduleBroadcast();
+    this.recalculateRosterDistances();
+    this.refreshVisibleRoster();
+  }
+
+  describeCoords(coords) {
+    if (!coords) return this.state.me.location;
+    let lat = coords.lat.toFixed(3);
+    let lon = coords.lon.toFixed(3);
+    return `~${lat}, ${lon}`;
   }
 
   actions = {
@@ -131,7 +168,7 @@ export default class App {
     },
     setFilter: (field, value) => {
       if (!(field in this.state.filters)) return;
-      this.state.filters[field] = value;
+      this.state.filters = { ...this.state.filters, [field]: value };
       this.refreshVisibleRoster();
     },
     updateComposer: value => {
@@ -178,8 +215,24 @@ export default class App {
       this.scheduleBroadcast();
       this.persistProfile();
     },
-    pickPhoto: file => {
+    pickPhoto: inputRef => {
+      let elementId = typeof inputRef === 'string' ? inputRef : null;
+      let file = null;
+      if (elementId && typeof document !== 'undefined') {
+        let el = document.getElementById(elementId);
+        if (el && el.files && el.files[0]) file = el.files[0];
+      } else if (inputRef && inputRef.name) {
+        file = inputRef;
+      }
       if (!file) return;
+      if (typeof FileReader === 'undefined') {
+        this.state.lastWave = {
+          text: 'FileReader missing in this browser',
+          tone: 'error',
+          timestamp: Date.now(),
+        };
+        return;
+      }
       let reader = new FileReader();
       reader.onload = () => {
         let dataUrl = reader.result;
@@ -197,6 +250,31 @@ export default class App {
         };
       };
       reader.readAsDataURL(file);
+      if (elementId && typeof document !== 'undefined') {
+        let el = document.getElementById(elementId);
+        if (el && el.type === 'file') el.value = '';
+      }
+    },
+    useGeolocation: () => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        this.state.geolocation.status = 'error';
+        this.state.geolocation.message = 'GPS not supported';
+        return;
+      }
+      this.state.geolocation.status = 'requesting';
+      this.state.geolocation.message = 'Locating…';
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          this.state.geolocation.status = 'ok';
+          this.state.geolocation.message = 'Location locked';
+          this.applyCoordinates(position.coords);
+        },
+        err => {
+          this.state.geolocation.status = 'error';
+          this.state.geolocation.message = err && err.message ? err.message : 'GPS denied';
+        },
+        { enableHighAccuracy: true, timeout: 12000 }
+      );
     },
   };
 
@@ -224,19 +302,36 @@ export default class App {
   }
 
   refreshVisibleRoster() {
+    this.recalculateRosterDistances();
     let tribe = this.state.filters.tribe;
     let vibe = this.state.filters.vibe;
     let within = Number(this.state.filters.radius) || 5;
     let list = this.state.roster.filter(profile => {
       let tribePass = tribe === 'all' || profile.tribe === tribe;
       let vibePass = vibe === 'any' || profile.vibe === vibe;
-      let distPass = !profile.distance || profile.distance <= within;
-      d.update();
+      let distanceValue = Number(profile.distance);
+      let distPass = !Number.isFinite(distanceValue) || distanceValue <= within;
       return tribePass && vibePass && distPass;
     });
     this.state.visibleRoster = list;
-    this.state.connection.peers = list.filter(item => item.live).length;
-    d.update();
+    this.state.connection.peers = this.state.roster.filter(item => item.live).length;
+  }
+
+  recalculateRosterDistances() {
+    if (!this.state.me.coords) return;
+    let mine = this.state.me.coords;
+    let changed = false;
+    let updated = this.state.roster.map(profile => {
+      if (!profile.coords) return profile;
+      let miles = this.distanceMiles(mine.lat, mine.lon, profile.coords.lat, profile.coords.lon);
+      if (!Number.isFinite(miles)) return profile;
+      if (Math.abs((profile.distance || 0) - miles) < 0.05) return profile;
+      changed = true;
+      return { ...profile, distance: miles };
+    });
+    if (changed) {
+      this.state.roster = updated;
+    }
   }
 
   scheduleBroadcast() {
@@ -262,11 +357,9 @@ export default class App {
       if (typeof joinRoom !== 'function') throw new Error('Trystero joinRoom missing');
       let config = {
         appId: 'meat-trystero',
-        /*/
         rtcConfig: {
           iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         },
-        */
       };
       let room = joinRoom(config, this.state.connection.roomId);
       this.room = room;
@@ -281,7 +374,10 @@ export default class App {
         waveAction[1]((payload) => this.receiveWave(payload));
       }
       if (room.onPeerJoin) {
-        room.onPeerJoin(peerId => this.tagConnection('peer joined', peerId));
+        room.onPeerJoin(peerId => {
+          this.tagConnection('peer joined', peerId);
+          this.broadcastProfile(true, peerId);
+        });
       }
       if (room.onPeerLeave) {
         room.onPeerLeave(peerId => this.handlePeerLeave(peerId));
@@ -295,9 +391,9 @@ export default class App {
     }
   }
 
-  broadcastProfile(force) {
+  broadcastProfile(force, peerId) {
     if (!this.sendProfile) return;
-    if (!force && this.lastProfileAt && Date.now() - this.lastProfileAt < 1500) return;
+    if (!peerId && !force && this.lastProfileAt && Date.now() - this.lastProfileAt < 1500) return;
     let payload = {
       userId: this.state.userId,
       displayName: this.state.me.displayName,
@@ -311,11 +407,16 @@ export default class App {
       role: this.state.me.role,
       lookingFor: this.state.me.lookingFor,
       photoUrl: this.state.me.photoUrl,
+      coords: this.state.me.coords,
       updatedAt: Date.now(),
     };
     try {
-      this.sendProfile(payload);
-      this.lastProfileAt = Date.now();
+      if (peerId) {
+        this.sendProfile(payload, peerId);
+      } else {
+        this.sendProfile(payload);
+        this.lastProfileAt = Date.now();
+      }
     } catch (err) {
       this.state.connection.error = 'Signal blocked';
     }
@@ -324,13 +425,25 @@ export default class App {
   ingestPeer(peerId, payload) {
     if (!payload || payload.userId === this.state.userId) return;
     let roster = this.state.roster.filter(profile => profile.peerId !== peerId && profile.userId !== payload.userId);
+    let coords = null;
+    if (payload.coords && typeof payload.coords === 'object') {
+      let lat = Number(payload.coords.lat);
+      let lon = Number(payload.coords.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        coords = { lat, lon };
+      }
+    }
+    let fallbackDistance = Number(payload.distance);
     let entry = {
       ...payload,
       peerId,
       fingerprint: payload.userId || peerId,
       lastSeen: Date.now(),
       live: true,
+      coords,
     };
+    let derivedDistance = this.distanceFromPeer(coords, fallbackDistance);
+    if (derivedDistance != null) entry.distance = derivedDistance;
     roster.unshift(entry);
     this.state.roster = roster.slice(0, 60);
     this.refreshVisibleRoster();
@@ -359,5 +472,28 @@ export default class App {
       tone: 'inbound',
       timestamp: payload.timestamp || Date.now(),
     };
+  }
+
+  distanceFromPeer(coords, fallbackDistance) {
+    if (coords && this.state.me.coords) {
+      let miles = this.distanceMiles(this.state.me.coords.lat, this.state.me.coords.lon, coords.lat, coords.lon);
+      if (Number.isFinite(miles)) return miles;
+    }
+    if (Number.isFinite(fallbackDistance)) return fallbackDistance;
+    return null;
+  }
+
+  distanceMiles(lat1, lon1, lat2, lon2) {
+    if (!Number.isFinite(lat1) || !Number.isFinite(lon1) || !Number.isFinite(lat2) || !Number.isFinite(lon2)) return null;
+    let R = 3958.8;
+    let dLat = this.deg2rad(lat2 - lat1);
+    let dLon = this.deg2rad(lon2 - lon1);
+    let a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  deg2rad(value) {
+    return (value * Math.PI) / 180;
   }
 }
