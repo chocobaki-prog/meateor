@@ -328,10 +328,10 @@ export default class App {
       this.state.me = this.state.love.me;
       let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
       Object.assign(this.state.me, storedProfile || {
-        displayName: 'You',
+        displayName: '',
         vibe: 'Online',
-        age: 18,
-        tribe: 'Geek',
+        age: 21,
+        tribe: 'Discreet',
         role: 'Vers',
         tagline: `Let's chat!`,
         lookingFor: `Friends & chill`,
