@@ -6,34 +6,27 @@ export default class Engine {
     this.roomName = roomName;
     this.config = config;
     this.myProfile = {};
-    this.peers = new Map();       // peerId -> { profile: {...} }
-
-    // cached location (null until available)
-    this.currentLocation = null;
+    this.peers = new Map();        // peerId -> { profile: {...} }
+    this.currentLocation = null;   // { lat, lon, accuracy, timestamp }
 
     // ---- connect ----
     this.room = joinRoom(this.config, this.roomName);
 
-    // messaging channel for profile exchange
     const [sendProfile, onProfile] = this.room.makeAction("profile");
     this.sendProfile = sendProfile;
 
-    // ---- peer join ----
     this.room.onPeerJoin((peerId) => {
       this.peers.set(peerId, { profile: {} });
 
-      // send our current profile to the newcomer
       if (Object.keys(this.myProfile).length > 0) {
         this.sendProfile(this.myProfile, peerId);
       }
     });
 
-    // ---- peer leave ----
     this.room.onPeerLeave((peerId) => {
       this.peers.delete(peerId);
     });
 
-    // ---- receiving metadata ----
     onProfile((profile, peerId) => {
       if (!this.peers.has(peerId)) {
         this.peers.set(peerId, { profile: {} });
@@ -43,18 +36,11 @@ export default class Engine {
   }
 
   // --------------------------------------------------------
-  // 🛰️ LOCATION FUNCTIONS
+  // 🛰️ LOCATION HANDLING
   // --------------------------------------------------------
 
-  /**
-   * Ask browser for geolocation permission.
-   * Returns true on success, false if denied or unavailable.
-   */
   async requestLocationPermission() {
-    if (!("geolocation" in navigator)) {
-      console.warn("Geolocation is not available in this browser/environment.");
-      return false;
-    }
+    if (!("geolocation" in navigator)) return false;
 
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
@@ -67,8 +53,7 @@ export default class Engine {
           };
           resolve(true);
         },
-        (err) => {
-          console.warn("Location permission denied:", err);
+        () => {
           this.currentLocation = null;
           resolve(false);
         },
@@ -77,9 +62,6 @@ export default class Engine {
     });
   }
 
-  /**
-   * Internal helper to fetch fresh GPS data right before sending profile.
-   */
   async _updateLocation() {
     if (!("geolocation" in navigator)) {
       this.currentLocation = null;
@@ -107,34 +89,85 @@ export default class Engine {
   }
 
   // --------------------------------------------------------
+  // 📐 DISTANCE HELPERS
+  // --------------------------------------------------------
+
+  _deg2rad(deg) {
+    return deg * (Math.PI / 180);
+  }
+
+  /**
+   * Haversine distance in km between (lat1, lon1) and (lat2, lon2)
+   */
+  _distanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius km
+    const dLat = this._deg2rad(lat2 - lat1);
+    const dLon = this._deg2rad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(this._deg2rad(lat1)) *
+        Math.cos(this._deg2rad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  // --------------------------------------------------------
   // 🧪 PROFILE FUNCTIONS
   // --------------------------------------------------------
 
-  /**
-   * Merge new metadata, attach GPS data, and broadcast.
-   */
   async setProfile(profileObj) {
-    // merge user-supplied data
     this.myProfile = { ...this.myProfile, ...profileObj };
 
-    // auto-update GPS location
     await this._updateLocation();
 
-    // inject location property
-    this.myProfile.location = this.currentLocation || 'Somewhere';
+    this.myProfile.location = this.currentLocation;
 
-    // broadcast to all peers
     this.sendProfile(this.myProfile);
   }
 
   /**
-   * Get array of peers and their metadata: [{ id, profile }, ...]
+   * Returns:
+   * [
+   *   {
+   *     id: "...",
+   *     profile: {...metadata without location...},
+   *     distance: "1.2 km" or "Somewhere"
+   *   }
+   * ]
    */
   getPeers() {
-    return [...this.peers.entries()].map(([id, { profile }]) => ({
-      id,
-      profile,
-    }));
+    const myLoc = this.currentLocation;
+
+    return [...this.peers.entries()].map(([id, { profile }]) => {
+      const { location, ...rest } = profile; // strip GPS from payload
+
+      let distance = "Somewhere";
+
+      if (myLoc && location) {
+        const km = this._distanceKm(
+          myLoc.lat,
+          myLoc.lon,
+          location.lat,
+          location.lon
+        );
+
+        if (isFinite(km)) {
+          distance =
+            km < 1
+              ? `${(km * 1000).toFixed(0)} m`
+              : `${km.toFixed(2)} km`;
+        }
+      }
+
+      return {
+        id,
+        profile: rest,
+        distance,
+      };
+    });
   }
 
   getMyProfile() {
