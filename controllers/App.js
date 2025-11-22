@@ -7,6 +7,14 @@ export default class App {
   unreadStorageKey = 'meateor:chatUnread';
   chatHydrateInterval = null;
   profileCounterInterval = null;
+  chatScrollElement = null;
+  chatScrollFrame = null;
+  pingAudio = null;
+  knownRosterPeerIds = new Set();
+  rosterSeeded = false;
+  soundUnlocked = false;
+  pendingPingCount = 0;
+  soundUnlockInstalled = false;
 
   state = {
     profileCollapsed: false,
@@ -18,6 +26,7 @@ export default class App {
       unread: {},
       peerDeviceIds: {},
       hydratedPeers: {},
+      autoScrollEnabled: true,
     },
     lightbox: {
       open: false,
@@ -71,6 +80,99 @@ export default class App {
       let current = Number(this.state.me.counter) || 0;
       this.state.me.counter = current + 1;
     }, 1000);
+  };
+
+  initPingAudio = () => {
+    if (this.pingAudio) return;
+    if (typeof Audio === 'undefined') return;
+    this.pingAudio = new Audio('media/ping.wav');
+    this.pingAudio.preload = 'auto';
+  };
+
+  performPingPlayback = () => {
+    try {
+      if (!this.pingAudio) this.initPingAudio();
+      if (!this.pingAudio) return;
+      this.pingAudio.currentTime = 0;
+      let playResult = this.pingAudio.play();
+      if (playResult && playResult.catch) {
+        playResult.catch(() => {});
+      }
+    } catch (error) {}
+  };
+
+  playPingSound = () => {
+    if (!this.soundUnlocked) {
+      this.pendingPingCount += 1;
+      return;
+    }
+    this.performPingPlayback();
+  };
+
+  installSoundUnlockListeners = () => {
+    if (this.soundUnlockInstalled) return;
+    this.soundUnlockInstalled = true;
+    let handler = () => {
+      ['pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
+        window.removeEventListener(eventName, handler, true);
+      });
+      this.actions.enablePingAudio();
+    };
+    ['pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
+      window.addEventListener(eventName, handler, { capture: true });
+    });
+  };
+
+  clearChatScrollFrame = () => {
+    if (!this.chatScrollFrame) return;
+    let win = typeof window !== 'undefined' ? window : null;
+    let caf = win && win.cancelAnimationFrame ? win.cancelAnimationFrame.bind(win) : clearTimeout;
+    caf(this.chatScrollFrame);
+    this.chatScrollFrame = null;
+  };
+
+  scheduleChatScroll = () => {
+    if (!this.state.chat.autoScrollEnabled || !this.chatScrollElement) return;
+    this.clearChatScrollFrame();
+    let win = typeof window !== 'undefined' ? window : null;
+    let raf = win && win.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : (fn => setTimeout(fn, 16));
+    this.chatScrollFrame = raf(() => {
+      if (this.chatScrollElement) {
+        this.chatScrollElement.scrollTop = this.chatScrollElement.scrollHeight;
+      }
+      this.chatScrollFrame = null;
+    });
+  };
+
+  updateAutoScrollState = element => {
+    let target = element || this.chatScrollElement;
+    if (!target) return;
+    let distance = target.scrollHeight - target.scrollTop - target.clientHeight;
+    this.state.chat.autoScrollEnabled = distance <= 50;
+    return this.state.chat.autoScrollEnabled;
+  };
+
+  refreshKnownRoster = forceSeed => {
+    let rosterList = Array.isArray(this.state.roster) ? this.state.roster : [];
+    let shouldSeed = forceSeed || !this.rosterSeeded;
+    if (!rosterList.length) {
+      this.knownRosterPeerIds.clear();
+      this.rosterSeeded = false;
+      return;
+    }
+    let currentIds = new Set();
+    rosterList.forEach(peer => {
+      if (!peer || !peer.id) return;
+      currentIds.add(peer.id);
+      if (!this.knownRosterPeerIds.has(peer.id) && !shouldSeed) {
+        this.playPingSound();
+      }
+      this.knownRosterPeerIds.add(peer.id);
+    });
+    this.rosterSeeded = true;
+    Array.from(this.knownRosterPeerIds).forEach(id => {
+      if (!currentIds.has(id)) this.knownRosterPeerIds.delete(id);
+    });
   };
 
   getChatHistoryMap = () => {
@@ -289,6 +391,7 @@ export default class App {
     this.state.chat.messages[peerId].push(entry);
     this.persistChatHistoryEntry(peerId, entry);
     if (entry.type === 'photo') this.syncLightboxForPeer(peerId);
+    if (this.state.chat.autoScrollEnabled) this.scheduleChatScroll();
   };
 
   handleIncomingChat = (peerId, payload) => {
@@ -302,6 +405,7 @@ export default class App {
     if (type === 'photo') message.photoUrl = payload.dataUrl;
     else message.text = text;
     this.appendChatMessage(peerId, message);
+    this.playPingSound();
     if (this.state.chat.openPeerId !== peerId) {
       let currentUnread = Number(this.state.chat.unread[peerId]) || 0;
       this.state.chat.unread[peerId] = currentUnread + 1;
@@ -347,8 +451,13 @@ export default class App {
       this.state.initialized = true;
       if (this.chatHydrateInterval) clearInterval(this.chatHydrateInterval);
       this.hydrateAllPeerChats();
-      this.chatHydrateInterval = setInterval(() => this.hydrateAllPeerChats(), 2000);
+      this.refreshKnownRoster(true);
+      this.chatHydrateInterval = setInterval(() => {
+        this.hydrateAllPeerChats();
+        this.refreshKnownRoster();
+      }, 2000);
       this.startProfileCounter();
+      this.installSoundUnlockListeners();
     },
     toggleProfileCollapsed: () => {
       this.state.profileCollapsed = !this.state.profileCollapsed;
@@ -386,6 +495,8 @@ export default class App {
       this.state.chat.openPeerId = peerId;
       this.state.chat.unread[peerId] = 0;
       this.persistUnreadCountForPeer(peerId);
+      this.state.chat.autoScrollEnabled = true;
+      this.scheduleChatScroll();
     },
     updateChatDraft: (peerId, value) => {
       if (!peerId) return;
@@ -409,6 +520,9 @@ export default class App {
     closeChat: () => {
       this.state.chat.openPeerId = null;
       this.resetLightboxState();
+      this.state.chat.autoScrollEnabled = true;
+      this.chatScrollElement = null;
+      this.clearChatScrollFrame();
     },
     uploadChatPhoto: inputId => {
       let input = document.getElementById(inputId);
@@ -428,6 +542,30 @@ export default class App {
       if (!dataUrl) return;
       this.addPhotoToGallery(dataUrl);
       this.sendPhotoMessage(dataUrl);
+    },
+    enablePingAudio: () => {
+      if (this.soundUnlocked) return;
+      this.soundUnlocked = true;
+      this.initPingAudio();
+      this.flushPendingPings();
+    },
+    attachChatScroll: element => {
+      if (!element) return;
+      this.chatScrollElement = element;
+      this.state.chat.autoScrollEnabled = true;
+      this.scheduleChatScroll();
+    },
+    detachChatScroll: element => {
+      if (this.chatScrollElement === element) {
+        this.chatScrollElement = null;
+        this.clearChatScrollFrame();
+      }
+    },
+    handleChatScroll: element => {
+      if (!element) return;
+      if (this.updateAutoScrollState(element)) {
+        this.scheduleChatScroll();
+      }
     },
     openPhotoLightbox: (peerId, timestamp, direction, photoUrl) => {
       if (!peerId) return;
@@ -473,4 +611,12 @@ export default class App {
       this.state.lightbox.activeIndex = nextIndex;
     },
   };
-}
+
+  flushPendingPings = () => {
+    if (!this.soundUnlocked) return;
+    while (this.pendingPingCount > 0) {
+      this.pendingPingCount -= 1;
+      this.performPingPlayback();
+    }
+  };
+};

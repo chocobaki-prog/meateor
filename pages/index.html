@@ -18,10 +18,12 @@
   <body
     class="min-h-screen bg-slate-950 text-white flex flex-col"
     style="display: none"
+    wf-onclick="post('app.enablePingAudio')"
   >
     <div
       class="min-h-screen bg-slate-950 text-white flex flex-col"
       wf-onattach="post('app.init')"
+      wf-onclick="post('app.enablePingAudio')"
     >
       <div
         class="mx-auto px-4 sm:px-6 py-8 gfont-Urbanist flex flex-col gap-8 xl:w-5xl w-full"
@@ -364,7 +366,12 @@
               Close
             </button>
           </div>
-          <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div
+            class="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            wf-onattach="post('app.attachChatScroll', _1)"
+            wf-ondetach="post('app.detachChatScroll', _1)"
+            wf-onscroll="post('app.handleChatScroll', _1)"
+          >
             <div
               wf-map="message of (state.app.chat.messages[state.app.chat.openPeerId] || [])"
               class="flex"
@@ -404,6 +411,7 @@
                 placeholder="Drop a line..."
                 wf-value="state.app.chat.drafts[state.app.chat.openPeerId]"
                 wf-oninput="post('app.updateChatDraft', state.app.chat.openPeerId, _1.value)"
+                wf-onkeydown="event.key === 'Enter' && !event.shiftKey ? (event.preventDefault(), post('app.sendChatMessage')) : null"
                 value=""
               ></textarea>
               <div class="flex flex-col gap-2">
