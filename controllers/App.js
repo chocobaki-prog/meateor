@@ -1,5 +1,6 @@
 import LoveEngine from '../other/LoveEngine.js';
 import RadarEngine from '../other/RadarEngine.js';
+import genpix from '../other/genpix.js';
 
 let storedAgeGateVerified = false;
 let ageGateSupported = typeof navigator !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -283,13 +284,7 @@ export default class App {
     let history = this.getChatHistoryMap();
     let stored = history[deviceId];
     if (!Array.isArray(stored)) return [];
-    return stored.map(entry => ({
-      direction: entry.direction === 'out' ? 'out' : 'in',
-      type: entry.type === 'photo' ? 'photo' : 'text',
-      text: typeof entry.text === 'string' ? entry.text : '',
-      photoUrl: entry.photoUrl,
-      timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
-    }));
+    return stored;
   };
 
   getStoredUnreadForPeer = (peerId, deviceIdOverride) => {
@@ -306,13 +301,7 @@ export default class App {
     if (!deviceId || !entry) return;
     let history = this.getChatHistoryMap();
     if (!Array.isArray(history[deviceId])) history[deviceId] = [];
-    history[deviceId].push({
-      direction: entry.direction === 'out' ? 'out' : 'in',
-      type: entry.type === 'photo' ? 'photo' : 'text',
-      text: typeof entry.text === 'string' ? entry.text : '',
-      photoUrl: entry.photoUrl,
-      timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : Date.now(),
-    });
+    history[deviceId].push(entry);
     this.saveChatHistoryMap(history);
   };
 
@@ -440,6 +429,8 @@ export default class App {
       type: message.type || (message.photoUrl ? 'photo' : 'text'),
       text: message.text,
       photoUrl: message.photoUrl,
+      pixUrl: message.pixUrl,
+      amount: message.amount,
       timestamp: message.timestamp || Date.now(),
     };
     this.state.chat.messages[peerId].push(entry);
@@ -457,6 +448,7 @@ export default class App {
     let timestamp = payload.timestamp || Date.now();
     let message = { direction: 'in', type, timestamp };
     if (type === 'photo') message.photoUrl = payload.dataUrl;
+    if (type === 'pix') { message.pixUrl = payload.pixUrl; message.amount = payload.amount }
     else message.text = text;
     this.appendChatMessage(peerId, message);
     this.playPingSound();
@@ -784,18 +776,32 @@ export default class App {
       this.ensureChatContainers(peerId);
       this.state.chat.drafts[peerId] = value;
     },
-    sendChatMessage: () => {
+    sendChatMessage: async () => {
       let peerId = this.state.chat.openPeerId;
       if (!peerId || !this.canSendToPeer(peerId)) return;
       this.ensureChatContainers(peerId);
       let draft = this.state.chat.drafts[peerId] || '';
       let text = draft.trim();
       if (!text) return;
+      text = text.trim();
       let timestamp = Date.now();
-      this.appendChatMessage(peerId, { direction: 'out', type: 'text', text, timestamp });
-      this.state.chat.drafts[peerId] = '';
+      let message = { type: 'text', timestamp: Date.now() };
+      if (!text.startsWith('/pix ')) {
+        message.text = text;
+        this.appendChatMessage(peerId, { direction: 'out', ...message });
+        this.state.chat.drafts[peerId] = '';
+      } else {
+        message.type = 'pix';
+        let amount = Number(text.slice('/pix '.length).trim());
+        if (Number.isNaN(amount)) throw new Error(`Invalid PIX amount`);
+        message.pixUrl = await genpix({ ...this.state.pix, amount });
+        message.amount = amount;
+        this.state.chat.drafts[peerId] = '';
+        this.appendChatMessage(peerId, { direction: 'out', ...message });
+      }
       if (this.state.love && this.state.love.sendDirectMessage) {
-        this.state.love.sendDirectMessage({ type: 'text', text, timestamp }, peerId);
+        console.log(message);
+        this.state.love.sendDirectMessage(message, peerId);
       }
     },
     closeChat: () => {

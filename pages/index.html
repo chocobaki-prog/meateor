@@ -488,7 +488,6 @@
         <div
           class="flex flex-col bg-slate-950/95 border border-slate-800 backdrop-blur rounded-none sm:rounded-3xl w-full h-full shadow-2xl overflow-hidden"
           wf-if="state.app.activeChatPeer"
-          hidden=""
         >
           <div
             class="relative border-b border-slate-800 p-4 flex items-start gap-3"
@@ -550,6 +549,15 @@
                     wf-onclick="post('app.openPhotoLightbox', state.app.chat.openPeerId, message.timestamp, message.direction, message.photoUrl)"
                   />
                 </div>
+                <div
+                  wf-if="message.type === 'pix' &amp;&amp; message.pixUrl"
+                  class="overflow-hidden rounded-xl bg-black/20"
+                >
+                  <img class="max-h-32 w-full" wf-src="message.pixUrl" />
+                </div>
+                <p class="truncate" wf-if="message.type === 'pix'">
+                  PIX: R$ {{message.amount.toFixed(2)}}
+                </p>
                 <p class="" wf-if="message.text">{{message.text}}</p>
                 <p class="text-[0.6rem] text-slate-300 mt-1">
                   {{new Date(message.timestamp || Date.now()).toLocaleTimeString()}}
@@ -629,22 +637,6 @@
               value=""
             />
           </div>
-        </div>
-        <div
-          wf-if="!state.app.activeChatPeer"
-          class="flex flex-col bg-slate-950/95 border border-slate-800 rounded-none sm:rounded-3xl w-full h-full text-center items-center justify-center gap-4 shadow-2xl"
-          hidden=""
-        >
-          <p class="text-sm text-slate-400 px-6">
-            This player left the room. Pick someone else to keep chatting.
-          </p>
-          <button
-            class="px-4 py-2 rounded-full border border-slate-700 text-xs tracking-[0.3em]"
-            wf-onclick="post('app.closeChat')"
-            value=""
-          >
-            Close
-          </button>
         </div>
       </div>
       <div
