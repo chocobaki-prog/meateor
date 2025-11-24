@@ -346,13 +346,13 @@
                   >Distance radius (Km)
                   <input
                     type="range"
-                    min="0.1"
-                    max="200"
-                    step="0.2"
+                    min="0.0"
+                    max="10000"
+                    step="0.5"
                     wf-value="state.app.me.radius"
                     wf-oninput="post('app.updateProfileField','radius', _1.value)"
                     class="mt-1 w-full"
-                    value="100.1"
+                    value="10000"
                   />
                 </label>
                 <div class="grid gap-4 xl:grid-cols-2">
@@ -599,11 +599,20 @@
                   ></label
                   ><button
                     class="nf nf-fa-video_camera flex items-center rounded-2xl border border-slate-700 px-3 text-slate-300"
+                    wf-class="{{(!state.app.activeChatPeerOnline || state.app.call.status !== 'idle') &amp;&amp; 'opacity-40 cursor-not-allowed'}}"
+                    wf-onclick="state.app.activeChatPeerOnline &amp;&amp; state.app.call.status === 'idle' &amp;&amp; post('app.requestCall')"
                     value=""
                   ></button>
                 </div>
               </div>
             </div>
+            <p
+              class="text-xs text-rose-400 cursor-pointer"
+              wf-if="state.app.call.error"
+              wf-onclick="post('app.clearCallError')"
+            >
+              {{state.app.call.error}} · Tap to dismiss
+            </p>
             <p
               class="text-xs text-amber-300"
               wf-if="state.app.activeChatPeer &amp;&amp; !state.app.activeChatPeerOnline"
@@ -687,27 +696,111 @@
               </button>
             </div>
             <div
-              class="mt-4 flex items-center justify-between text-slate-200 text-xs uppercase tracking-[0.3em]"
+              class="mt-4 flex items-center text-slate-200 text-xs uppercase tracking-[0.3em] justify-center"
             >
-              <button
-                class="px-4 py-2 rounded-full border border-slate-600"
-                wf-onclick="post('app.prevPhotoLightbox')"
-                value=""
-              >
-                Previous
-              </button>
               <p class="text-slate-400 tracking-normal truncate max-w-96">
                 Photo {{(state.app.lightbox.photos.length ? state.app.lightbox.activeIndex + 1 : 0)}} /
                 {{state.app.lightbox.photos.length || 0}}
               </p>
-              <button
-                class="px-4 py-2 rounded-full border border-slate-600"
-                wf-onclick="post('app.nextPhotoLightbox')"
-                value=""
-              >
-                Next
-              </button>
             </div>
+          </div>
+        </div>
+      </div>
+      <div
+        wf-if="state.app.call.status !== 'idle'"
+        class="fixed inset-0 z-50 flex items-center justify-center px-4 py-8"
+        hidden=""
+      >
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+        <div
+          class="relative z-10 w-full max-w-4xl mx-auto"
+          wf-class="{{state.app.call.fullscreen ? 'max-w-none h-full' : ''}}"
+        >
+          <div
+            class="relative rounded-3xl border border-slate-800 bg-slate-950/80 overflow-hidden h-[60vh]"
+            wf-class="{{state.app.call.fullscreen ? 'h-full min-h-[60vh]' : ''}}"
+          >
+            <video
+              class="absolute inset-0 w-full h-full object-cover bg-black/70"
+              autoplay=""
+              playsinline=""
+              wf-onattach="post('app.bindRemoteCallVideo', _1)"
+              wf-ondetach="post('app.unbindRemoteCallVideo', _1)"
+            ></video>
+            <div
+              class="absolute inset-0 flex flex-col items-center justify-center text-center px-6"
+              wf-if="state.app.call.status !== 'active' || !state.app.call.remoteStreamActive"
+            >
+              <p class="text-sm uppercase tracking-[0.4em] text-slate-400">
+                {{state.app.call.status === 'requesting' ? 'Calling' : state.app.call.status === 'ringing' ? 'Incoming call' : state.app.call.status === 'connecting' ? 'Connecting' : 'Live call'}}
+              </p>
+              <p class="text-3xl font-bold mt-4">
+                {{state.app.activeCallPeerName || 'Unknown caller'}}
+              </p>
+              <p class="text-sm text-slate-400 mt-2">
+                {{state.app.call.status === 'ringing' ? 'Pick up to join their cam + mic' : 'Hang tight while we link the streams'}}
+              </p>
+            </div>
+            <div
+              class="absolute bottom-4 right-4 w-36 h-24 rounded-xl overflow-hidden border border-white/20 bg-black/60"
+            >
+              <video
+                class="w-full h-full object-cover"
+                muted=""
+                autoplay=""
+                playsinline=""
+                wf-onattach="post('app.bindLocalCallVideo', _1)"
+                wf-ondetach="post('app.unbindLocalCallVideo', _1)"
+              ></video>
+              <div
+                class="absolute inset-0 flex items-center justify-center text-[0.65rem] text-white/70"
+                wf-if="!state.app.call.localStreamActive"
+              >
+                Waiting for camera
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-3 justify-center mt-6">
+            <button
+              class="px-5 py-3 rounded-full bg-emerald-400 text-black font-semibold text-sm"
+              wf-if="state.app.call.status === 'ringing'"
+              wf-onclick="post('app.acceptIncomingCall')"
+              value=""
+            >
+              Accept
+            </button>
+            <button
+              class="px-5 py-3 rounded-full bg-rose-500 text-white font-semibold text-sm"
+              wf-if="state.app.call.status === 'ringing'"
+              wf-onclick="post('app.rejectIncomingCall')"
+              value=""
+            >
+              Decline
+            </button>
+            <button
+              class="px-5 py-3 rounded-full bg-slate-800 text-white font-semibold text-sm"
+              wf-if="state.app.call.status === 'requesting'"
+              wf-onclick="post('app.cancelOutgoingCall')"
+              value=""
+            >
+              Cancel call
+            </button>
+            <button
+              class="px-5 py-3 rounded-full bg-rose-500 text-white font-semibold text-sm"
+              wf-if="state.app.call.status === 'connecting' || state.app.call.status === 'active'"
+              wf-onclick="post('app.endActiveCall')"
+              value=""
+            >
+              Hang up
+            </button>
+            <button
+              class="px-5 py-3 rounded-full bg-slate-700 text-white font-semibold text-sm"
+              wf-if="state.app.call.status === 'active'"
+              wf-onclick="post('app.toggleCallFullscreen')"
+              value=""
+            >
+              {{state.app.call.fullscreen ? 'Windowed view' : 'Fullscreen'}}
+            </button>
           </div>
         </div>
       </div>

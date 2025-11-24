@@ -4,6 +4,7 @@ import genpix from '../other/genpix.js';
 
 let storedAgeGateVerified = false;
 let ageGateSupported = typeof navigator !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+let callSupported = typeof navigator !== 'undefined' && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 try {
   if (typeof window !== 'undefined' && window.localStorage) {
     storedAgeGateVerified = window.localStorage.getItem('meateor:ageVerified') === '1';
@@ -32,6 +33,14 @@ export default class App {
   ageVerificationVideo = null;
   initRequested = false;
   bootstrapped = false;
+  callRequestTimeout = null;
+  sendCallStream = null;
+  callStreamUnsubscribe = null;
+  localCallStream = null;
+  localCallStreamPromise = null;
+  remoteCallStream = null;
+  callLocalVideoElement = null;
+  callRemoteVideoElement = null;
 
   state = {
     ageGate: {
@@ -63,6 +72,18 @@ export default class App {
       photos: [],
       activeIndex: 0,
     },
+    call: {
+      status: 'idle',
+      supported: callSupported,
+      activePeerId: null,
+      requestId: null,
+      incomingPeerId: null,
+      incomingRequestId: null,
+      error: null,
+      fullscreen: false,
+      localStreamActive: false,
+      remoteStreamActive: false,
+    },
     get roster() {
       if (!state.app.love || !state.app.radar || !this.me) return [];
       let radius = Number(this.me.radius || 0);
@@ -91,6 +112,13 @@ export default class App {
       let peer = this.activeChatPeer;
       if (!peer) return false;
       return !peer.offline && !!peer.connectionId;
+    },
+    get activeCallPeerName() {
+      let peerId = this.call && this.call.activePeerId;
+      if (!peerId || !state.app.love || !Array.isArray(state.app.love.peers)) return '';
+      let peer = state.app.love.peers.find(entry => entry && entry.id === peerId);
+      if (!peer || !peer.displayName) return '';
+      return peer.displayName;
     },
   };
 
@@ -221,6 +249,20 @@ export default class App {
   getPeerById = peerId => {
     if (!peerId || !this.state.love || !Array.isArray(this.state.love.peers)) return null;
     return this.state.love.peers.find(peer => peer && peer.id === peerId) || null;
+  };
+
+  getPeerConnectionId = peerId => {
+    if (!peerId) return null;
+    let peer = this.getPeerById(peerId);
+    if (peer && peer.connectionId) return peer.connectionId;
+    if (this.state.chat && this.state.chat.peerDeviceIds) {
+      let mappedDevice = this.state.chat.peerDeviceIds[peerId];
+      if (mappedDevice && mappedDevice !== peerId) {
+        let fallbackPeer = this.getPeerById(mappedDevice);
+        if (fallbackPeer && fallbackPeer.connectionId) return fallbackPeer.connectionId;
+      }
+    }
+    return null;
   };
 
   canSendToPeer = peerId => {
@@ -439,8 +481,296 @@ export default class App {
     if (this.state.chat.autoScrollEnabled) this.scheduleChatScroll();
   };
 
+  ensureLocalCallMedia = async () => {
+    if (this.localCallStream) {
+      this.state.call.localStreamActive = true;
+      this.attachLocalCallStream();
+      return this.localCallStream;
+    }
+    if (this.localCallStreamPromise) return this.localCallStreamPromise;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Camera or microphone unavailable.');
+    }
+    let pendingPromise = navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    this.localCallStreamPromise = pendingPromise;
+    return pendingPromise
+      .then(stream => {
+        if (this.localCallStreamPromise !== pendingPromise) {
+          try {
+            if (stream && stream.getTracks) stream.getTracks().forEach(track => track.stop());
+          } catch (error) {}
+          return this.localCallStream;
+        }
+        this.localCallStreamPromise = null;
+        this.localCallStream = stream;
+        this.state.call.localStreamActive = true;
+        this.attachLocalCallStream();
+        return stream;
+      })
+      .catch(error => {
+        if (this.localCallStreamPromise === pendingPromise) {
+          this.localCallStreamPromise = null;
+        }
+        throw error;
+      });
+  };
+
+  ensureCallStreamSetup = () => {
+    if (this.sendCallStream) return;
+    if (!this.state.love || !this.state.love.room) return;
+    if (typeof this.state.love.room.makeStream !== 'function') return;
+    let pair = this.state.love.room.makeStream();
+    if (!Array.isArray(pair) || pair.length < 2) return;
+    let sendStream = pair[0];
+    let onStream = pair[1];
+    this.sendCallStream = (stream, peerId) => {
+      if (!sendStream || !stream || !peerId) return;
+      let targetConnectionId = this.getPeerConnectionId(peerId) || peerId;
+      if (!targetConnectionId) return;
+      try {
+        sendStream(stream, targetConnectionId);
+      } catch (error) {}
+    };
+    if (typeof onStream === 'function') {
+      this.callStreamUnsubscribe = onStream((remoteStream, remotePeerId) => {
+        let deviceId = this.getPeerDeviceId(remotePeerId) || remotePeerId;
+        this.handleIncomingMediaStream(remoteStream, deviceId);
+      });
+    }
+  };
+
+  handleIncomingMediaStream = (stream, peerId) => {
+    if (!stream || !peerId) return;
+    let activePeerId = this.state.call.activePeerId;
+    if (!activePeerId) return;
+    if (activePeerId !== peerId) return;
+    this.remoteCallStream = stream;
+    this.state.call.remoteStreamActive = true;
+    this.state.call.status = 'active';
+    this.state.call.error = null;
+    this.attachRemoteCallStream();
+  };
+
+  attachCallStreamToElement = (element, stream, muted) => {
+    if (!element) return;
+    try {
+      element.autoplay = true;
+      element.playsInline = true;
+      element.muted = !!muted;
+      if (element.srcObject !== stream) {
+        element.srcObject = stream || null;
+      }
+      if (element.play) {
+        let result = element.play();
+        if (result && result.catch) result.catch(() => {});
+      }
+    } catch (error) {}
+  };
+
+  attachLocalCallStream = () => {
+    if (!this.callLocalVideoElement) return;
+    this.attachCallStreamToElement(this.callLocalVideoElement, this.localCallStream, true);
+  };
+
+  attachRemoteCallStream = () => {
+    if (!this.callRemoteVideoElement) return;
+    this.attachCallStreamToElement(this.callRemoteVideoElement, this.remoteCallStream, false);
+  };
+
+  bindLocalCallVideoElement = element => {
+    this.callLocalVideoElement = element;
+    if (element) {
+      this.attachLocalCallStream();
+    }
+  };
+
+  releaseLocalCallVideoElement = element => {
+    if (this.callLocalVideoElement === element) {
+      try {
+        if (this.callLocalVideoElement) this.callLocalVideoElement.srcObject = null;
+      } catch (error) {}
+      this.callLocalVideoElement = null;
+    }
+  };
+
+  bindRemoteCallVideoElement = element => {
+    this.callRemoteVideoElement = element;
+    if (element) {
+      this.attachRemoteCallStream();
+    }
+  };
+
+  releaseRemoteCallVideoElement = element => {
+    if (this.callRemoteVideoElement === element) {
+      try {
+        if (this.callRemoteVideoElement) this.callRemoteVideoElement.srcObject = null;
+      } catch (error) {}
+      this.callRemoteVideoElement = null;
+    }
+  };
+
+  tearDownLocalCallStream = () => {
+    this.localCallStreamPromise = null;
+    if (this.localCallStream && this.localCallStream.getTracks) {
+      this.localCallStream.getTracks().forEach(track => track.stop());
+    }
+    this.localCallStream = null;
+    if (this.callLocalVideoElement) {
+      try {
+        this.callLocalVideoElement.srcObject = null;
+      } catch (error) {}
+    }
+    this.state.call.localStreamActive = false;
+  };
+
+  tearDownRemoteCallStream = () => {
+    if (this.remoteCallStream && this.remoteCallStream.getTracks) {
+      this.remoteCallStream.getTracks().forEach(track => track.stop());
+    }
+    this.remoteCallStream = null;
+    if (this.callRemoteVideoElement) {
+      try {
+        this.callRemoteVideoElement.srcObject = null;
+      } catch (error) {}
+    }
+    this.state.call.remoteStreamActive = false;
+  };
+
+  clearCallRequestTimeout = () => {
+    if (this.callRequestTimeout) {
+      clearTimeout(this.callRequestTimeout);
+      this.callRequestTimeout = null;
+    }
+  };
+
+  startCallRequestTimer = () => {
+    this.clearCallRequestTimeout();
+    this.callRequestTimeout = setTimeout(() => {
+      if (this.state.call.status === 'requesting') {
+        this.state.call.error = 'No answer. Try again later.';
+        this.endCallSession(true);
+      }
+    }, 25000);
+  };
+
+  endCallSession = keepError => {
+    this.clearCallRequestTimeout();
+    this.tearDownLocalCallStream();
+    this.tearDownRemoteCallStream();
+    if (!keepError) this.state.call.error = null;
+    this.state.call.status = 'idle';
+    this.state.call.activePeerId = null;
+    this.state.call.requestId = null;
+    this.state.call.incomingPeerId = null;
+    this.state.call.incomingRequestId = null;
+    this.state.call.fullscreen = false;
+    this.state.call.localStreamActive = false;
+    this.state.call.remoteStreamActive = false;
+  };
+
+  sendCallSignal = (peerId, payload) => {
+    if (!peerId || !payload) return;
+    if (!this.state.love || !this.state.love.sendDirectMessage) return;
+    this.state.love.sendDirectMessage({ call: payload }, peerId);
+  };
+
+  handleCallSignal = (peerId, detail) => {
+    if (!peerId || !detail) return false;
+    let type = detail.type;
+    if (!type) return false;
+    let requestId = detail.requestId || null;
+    if (type === 'request') {
+      if (!this.state.call.supported) {
+        this.sendCallSignal(peerId, { type: 'error', requestId, message: 'Calls unsupported on this device.' });
+        return true;
+      }
+      if (this.state.call.status !== 'idle') {
+        this.sendCallSignal(peerId, { type: 'busy', requestId });
+        return true;
+      }
+      this.endCallSession(false);
+      this.state.call.status = 'ringing';
+      this.state.call.incomingPeerId = peerId;
+      this.state.call.incomingRequestId = requestId;
+      this.state.call.activePeerId = peerId;
+      this.state.call.error = null;
+      return true;
+    }
+    if (type === 'accept') {
+      if (this.state.call.activePeerId !== peerId || this.state.call.requestId !== requestId) return true;
+      this.clearCallRequestTimeout();
+      this.beginCallMediaSession(peerId);
+      return true;
+    }
+    if (type === 'reject') {
+      if (this.state.call.activePeerId === peerId && this.state.call.requestId === requestId) {
+        this.state.call.error = 'Call declined';
+        this.endCallSession(true);
+      }
+      return true;
+    }
+    if (type === 'busy') {
+      if (this.state.call.activePeerId === peerId && this.state.call.requestId === requestId) {
+        this.state.call.error = 'They are busy right now';
+        this.endCallSession(true);
+      }
+      return true;
+    }
+    if (type === 'cancel') {
+      if (this.state.call.incomingPeerId === peerId && this.state.call.incomingRequestId === requestId) {
+        this.state.call.error = 'Call cancelled';
+        this.endCallSession(true);
+      }
+      return true;
+    }
+    if (type === 'end') {
+      if (this.state.call.activePeerId === peerId) {
+        this.endCallSession(false);
+      }
+      return true;
+    }
+    if (type === 'error') {
+      if (this.state.call.activePeerId === peerId) {
+        this.state.call.error = detail.message || 'Call failed';
+        this.endCallSession(true);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  beginCallMediaSession = async peerId => {
+    if (!peerId) return;
+    if (!this.state.call.supported) {
+      this.state.call.error = 'Calls unsupported on this device.';
+      this.endCallSession(true);
+      return;
+    }
+    this.ensureCallStreamSetup();
+    this.state.call.status = 'connecting';
+    this.state.call.error = null;
+    try {
+      let stream = await this.ensureLocalCallMedia();
+      if (!stream) throw new Error('Camera or microphone unavailable.');
+      this.localCallStream = stream;
+      this.state.call.localStreamActive = true;
+      this.attachLocalCallStream();
+      if (this.sendCallStream) {
+        this.sendCallStream(stream, peerId);
+      }
+    } catch (error) {
+      let message = error && error.message ? error.message : 'Unable to access camera or microphone.';
+      this.state.call.error = message;
+      this.sendCallSignal(peerId, { type: 'error', requestId: this.state.call.requestId || this.state.call.incomingRequestId, message });
+      this.endCallSession(true);
+    }
+  };
+
   handleIncomingChat = (peerId, payload) => {
     if (!peerId || !payload) return;
+    if (payload.call) {
+      if (this.handleCallSignal(peerId, payload.call)) return;
+    }
     let type = payload.type || (payload.dataUrl ? 'photo' : 'text');
     let text = typeof payload.text === 'string' ? payload.text : '';
     if (type === 'text' && !text.trim()) return;
@@ -476,6 +806,7 @@ export default class App {
     this.state.love = new LoveEngine({ appId: 'meateor2' }, 'gaybar');
     this.state.radar = new RadarEngine();
     this.state.love.onChatMessage((payload, id) => this.handleIncomingChat(id, payload));
+    this.ensureCallStreamSetup();
     setInterval(() => this.state.me.location = this.state.radar.location, 1000);
     this.state.me = this.state.love.me;
     let storedProfile = JSON.parse(localStorage.getItem('meateor:profile') || 'null');
@@ -904,6 +1235,91 @@ export default class App {
       }
       let nextIndex = (this.state.lightbox.activeIndex - 1 + photos.length) % photos.length;
       this.state.lightbox.activeIndex = nextIndex;
+    },
+    requestCall: async () => {
+      if (!this.state.call.supported) {
+        this.state.call.error = 'Calls are not supported on this device.';
+        return;
+      }
+      if (this.state.call.status !== 'idle') {
+        this.state.call.error = 'You are already handling a call.';
+        return;
+      }
+      let peerId = this.state.chat.openPeerId;
+      if (!peerId || !this.canSendToPeer(peerId)) {
+        this.state.call.error = 'They need to be online to start a call.';
+        return;
+      }
+      let requestId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      this.state.call.requestId = requestId;
+      this.state.call.activePeerId = peerId;
+      this.state.call.status = 'requesting';
+      this.state.call.error = null;
+      this.ensureCallStreamSetup();
+      this.sendCallSignal(peerId, { type: 'request', requestId });
+      this.startCallRequestTimer();
+      try {
+        await this.ensureLocalCallMedia();
+      } catch (error) {
+        let message = error && error.message ? error.message : 'Unable to access camera or microphone.';
+        this.state.call.error = message;
+        this.sendCallSignal(peerId, { type: 'error', requestId, message });
+        this.endCallSession(true);
+        return;
+      }
+    },
+    cancelOutgoingCall: () => {
+      if (this.state.call.status !== 'requesting') return;
+      let peerId = this.state.call.activePeerId;
+      if (peerId) {
+        this.sendCallSignal(peerId, { type: 'cancel', requestId: this.state.call.requestId });
+      }
+      this.endCallSession(false);
+    },
+    acceptIncomingCall: () => {
+      if (this.state.call.status !== 'ringing') return;
+      let peerId = this.state.call.incomingPeerId;
+      if (!peerId) return;
+      let requestId = this.state.call.incomingRequestId;
+      this.state.call.requestId = requestId;
+      this.state.call.activePeerId = peerId;
+      this.sendCallSignal(peerId, { type: 'accept', requestId });
+      this.beginCallMediaSession(peerId);
+    },
+    rejectIncomingCall: () => {
+      if (this.state.call.status !== 'ringing') return;
+      let peerId = this.state.call.incomingPeerId;
+      if (!peerId) return;
+      let requestId = this.state.call.incomingRequestId;
+      this.sendCallSignal(peerId, { type: 'reject', requestId });
+      this.endCallSession(false);
+    },
+    endActiveCall: () => {
+      if (this.state.call.status === 'idle') return;
+      let peerId = this.state.call.activePeerId;
+      if (peerId) {
+        let requestId = this.state.call.requestId || this.state.call.incomingRequestId;
+        this.sendCallSignal(peerId, { type: 'end', requestId });
+      }
+      this.endCallSession(false);
+    },
+    toggleCallFullscreen: () => {
+      this.state.call.fullscreen = !this.state.call.fullscreen;
+    },
+    bindLocalCallVideo: element => {
+      this.bindLocalCallVideoElement(element);
+    },
+    unbindLocalCallVideo: element => {
+      this.releaseLocalCallVideoElement(element);
+    },
+    bindRemoteCallVideo: element => {
+      this.bindRemoteCallVideoElement(element);
+    },
+    unbindRemoteCallVideo: element => {
+      this.releaseRemoteCallVideoElement(element);
+    },
+    clearCallError: () => {
+      this.state.call.error = null;
     },
   };
 
