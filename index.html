@@ -4,80 +4,70 @@
   <meta charset="utf-8" />
   <title>PULSE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-
-  <style>
-    /* PULSE Strong Neon Dark Theme */
-    body, html {
-      background: #0a0a0a !important;
-      color: #ffffff !important;
-      font-family: system-ui, -apple-system, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-
-    /* Big PULSE Header */
-    .pulse-header {
-      background: #0a0a0a;
-      padding: 20px 0;
-      text-align: center;
-      border-bottom: 3px solid #00f0ff;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .pulse-header h1 {
-      margin: 0;
-      font-size: 36px;
-      color: #00f0ff;
-      text-shadow: 0 0 25px #c300ff;
-      letter-spacing: 3px;
-    }
-
-    .pulse-header p {
-      margin: 8px 0 0;
-      color: #00f0ff;
-      font-size: 16px;
-    }
-
-    /* Cards and Profiles */
-    .card, .profile, section, div, .container, [class*="card"], [class*="profile"] {
-      background: #1a1a1a !important;
-      border: 2px solid #00f0ff !important;
-      box-shadow: 0 0 30px rgba(195, 0, 255, 0.6) !important;
-      border-radius: 16px !important;
-    }
-
-    h1, h2, .title, .logo, .header, strong {
-      color: #00f0ff !important;
-      text-shadow: 0 0 25px #c300ff !important;
-    }
-
-    button, .btn, .accent, [role="button"] {
-      background: linear-gradient(90deg, #00f0ff, #c300ff) !important;
-      color: white !important;
-      border: none !important;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.5) !important;
-    }
-
-    .online {
-      background: #00ff9d !important;
-      color: #000 !important;
-    }
-  </style>
 </head>
 <body>
 
-  <!-- PULSE Header -->
-  <div class="pulse-header">
-    <h1>PULSE</h1>
-    <p>Nearby guys • Instant chat • Right now</p>
-  </div>
+  <script>
+    // Force PULSE branding and neon theme
+    function forcePulse() {
+      // Add big PULSE header if not present
+      if (!document.querySelector('.pulse-header')) {
+        const header = document.createElement('div');
+        header.className = 'pulse-header';
+        header.innerHTML = `
+          <h1>PULSE</h1>
+          <p>Nearby guys • Instant chat • Right now</p>
+        `;
+        document.body.insertAdjacentElement('afterbegin', header);
+      }
 
-  <!-- Original app content will load here -->
-  <script type="module">
-    // The original scripts from meateor will run here
-    // (Keep your original script content if you have it)
+      // Force dark neon theme
+      document.body.style.background = '#0a0a0a';
+      document.body.style.color = '#ffffff';
+
+      // Style cards and profiles
+      document.querySelectorAll('div, section, .card, .profile, [class*="card"], [class*="profile"]').forEach(el => {
+        if (el.children.length > 0 || el.textContent.trim().length > 10) {
+          el.style.background = '#1a1a1a';
+          el.style.border = '2px solid #00f0ff';
+          el.style.boxShadow = '0 0 30px rgba(195, 0, 255, 0.6)';
+          el.style.borderRadius = '16px';
+        }
+      });
+
+      // Style headings
+      document.querySelectorAll('h1, h2, .title, .header, strong').forEach(h => {
+        h.style.color = '#00f0ff';
+        h.style.textShadow = '0 0 25px #c300ff';
+      });
+
+      // Style buttons
+      document.querySelectorAll('button, .btn, .accent, [role="button"]').forEach(btn => {
+        btn.style.background = 'linear-gradient(90deg, #00f0ff, #c300ff)';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+      });
+
+      // Hide old MEATEOR / Grinder text
+      document.querySelectorAll('h1, h2, .title, .header').forEach(el => {
+        if (el.textContent.includes('MEATEOR') || el.textContent.includes('Grinder')) {
+          el.style.display = 'none';
+        }
+      });
+
+      console.log('PULSE forced successfully');
+    }
+
+    // Run immediately and repeatedly
+    forcePulse();
+    setTimeout(forcePulse, 500);
+    setTimeout(forcePulse, 1500);
+    setTimeout(forcePulse, 3000);
+    setTimeout(forcePulse, 5000);
+
+    // Run on user interaction
+    document.addEventListener('click', forcePulse);
+    document.addEventListener('scroll', forcePulse);
   </script>
 
 </body>
