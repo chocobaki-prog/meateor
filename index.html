@@ -147,4 +147,43 @@
       })();
     </script>
   </body>
+  <script>
+  // Force PULSE neon dark theme
+  function applyPulseTheme() {
+    document.body.style.background = '#0a0a0a';
+    document.body.style.color = '#ffffff';
+
+    const cards = document.querySelectorAll('.card, .profile, section, div');
+    cards.forEach(card => {
+      card.style.background = '#1a1a1a';
+      card.style.border = '1px solid #00f0ff';
+      card.style.boxShadow = '0 0 25px rgba(195, 0, 255, 0.5)';
+      card.style.borderRadius = '12px';
+    });
+
+    const headings = document.querySelectorAll('h1, h2, .title, .logo, .header');
+    headings.forEach(h => {
+      h.style.color = '#00f0ff';
+      h.style.textShadow = '0 0 20px #c300ff';
+    });
+
+    const buttons = document.querySelectorAll('button, .btn, .accent');
+    buttons.forEach(btn => {
+      btn.style.background = 'linear-gradient(90deg, #00f0ff, #c300ff)';
+      btn.style.color = 'white';
+      btn.style.border = 'none';
+    });
+
+    // Change title
+    const title = document.querySelector('title');
+    if (title) title.textContent = 'PULSE';
+
+    console.log('PULSE neon theme applied');
+  }
+
+  // Apply immediately and again after load
+  window.addEventListener('load', applyPulseTheme);
+  setTimeout(applyPulseTheme, 500);
+  setTimeout(applyPulseTheme, 1500);
+</script>
 </html>
