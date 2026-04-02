@@ -148,7 +148,62 @@
     </script>
   </body>
   <script>
-  // Force PULSE neon dark theme
+ <script>
+  function applyPulseTheme() {
+    // Force dark background
+    document.documentElement.style.background = '#0a0a0a';
+    document.body.style.background = '#0a0a0a';
+    document.body.style.color = '#ffffff';
+
+    // Target all cards and profiles
+    const cards = document.querySelectorAll('div, section, .card, .profile, [class*="card"], [class*="profile"]');
+    cards.forEach(el => {
+      if (el.children.length > 0 || el.textContent.trim().length > 5) {
+        el.style.background = '#1a1a1a';
+        el.style.border = '2px solid #00f0ff';
+        el.style.boxShadow = '0 0 30px rgba(195, 0, 255, 0.6)';
+        el.style.borderRadius = '16px';
+      }
+    });
+
+    // Headings and titles
+    const headings = document.querySelectorAll('h1, h2, h3, .title, .header, strong');
+    headings.forEach(h => {
+      h.style.color = '#00f0ff';
+      h.style.textShadow = '0 0 25px #c300ff';
+    });
+
+    // Buttons
+    const buttons = document.querySelectorAll('button, .btn, [role="button"], .accent');
+    buttons.forEach(btn => {
+      btn.style.background = 'linear-gradient(90deg, #00f0ff, #c300ff)';
+      btn.style.color = '#ffffff';
+      btn.style.border = 'none';
+      btn.style.boxShadow = '0 0 15px rgba(0, 240, 255, 0.5)';
+    });
+
+    // Online indicators
+    const online = document.querySelectorAll('.online, [class*="online"]');
+    online.forEach(o => {
+      o.style.background = '#00ff9d';
+      o.style.color = '#000';
+    });
+
+    console.log('%cPULSE neon theme forced', 'color:#00f0ff; font-size:16px');
+  }
+
+  // Run multiple times to catch dynamic content
+  window.addEventListener('load', () => {
+    applyPulseTheme();
+    setTimeout(applyPulseTheme, 800);
+    setTimeout(applyPulseTheme, 2000);
+    setTimeout(applyPulseTheme, 4000);
+  });
+
+  // Also run on any click or scroll (in case content loads later)
+  document.addEventListener('click', applyPulseTheme);
+  document.addEventListener('scroll', applyPulseTheme);
+</script>
   function applyPulseTheme() {
     document.body.style.background = '#0a0a0a';
     document.body.style.color = '#ffffff';
