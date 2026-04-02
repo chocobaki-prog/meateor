@@ -1,136 +1,51 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>PULSE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <!-- PULSE Header -->
-  <div class="pulse-header">
-    <h1>PULSE</h1>
-    <p>Nearby guys • Instant chat • Right now</p>
-  </div>
-    background: #0a0a0a;
-    padding: 20px 0;
-    text-align: center;
-    border-bottom: 3px solid #00f0ff;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
 
-  .pulse-header h1 {
-    margin: 0;
-    font-size: 36px;
-    color: #00f0ff;
-    text-shadow: 0 0 25px #c300ff;
-    letter-spacing: 3px;
-  }
+  <style>
+    /* PULSE Strong Neon Dark Theme */
+    body, html {
+      background: #0a0a0a !important;
+      color: #ffffff !important;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
 
-  .pulse-header p {
-    margin: 8px 0 0;
-    color: #00f0ff;
-    font-size: 16px;
-  }
+    /* Big PULSE Header */
+    .pulse-header {
+      background: #0a0a0a;
+      padding: 20px 0;
+      text-align: center;
+      border-bottom: 3px solid #00f0ff;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-  /* Cards and Profiles */
-  .card, .profile, section, div, .container, [class*="card"], [class*="profile"] {
-    background: #1a1a1a !important;
-    border: 2px solid #00f0ff !important;
-    box-shadow: 0 0 30px rgba(195, 0, 255, 0.6) !important;
-    border-radius: 16px !important;
-  }
+    .pulse-header h1 {
+      margin: 0;
+      font-size: 36px;
+      color: #00f0ff;
+      text-shadow: 0 0 25px #c300ff;
+      letter-spacing: 3px;
+    }
 
-  h1, h2, .title, .logo, .header, strong {
-    color: #00f0ff !important;
-    text-shadow: 0 0 25px #c300ff !important;
-  }
+    .pulse-header p {
+      margin: 8px 0 0;
+      color: #00f0ff;
+      font-size: 16px;
+    }
 
-  button, .btn, .accent, [role="button"] {
-    background: linear-gradient(90deg, #00f0ff, #c300ff) !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.5) !important;
-  }
-
-  .online {
-    background: #00ff9d !important;
-    color: #000 !important;
-  }
-</style>
-    color: #00f0ff;
-    font-size: 16px;
-  }
-
-  /* Cards and Profiles */
-  .card, .profile, section, div, .container, [class*="card"], [class*="profile"] {
-    background: #1a1a1a !important;
-    border: 2px solid #00f0ff !important;
-    box-shadow: 0 0 30px rgba(195, 0, 255, 0.6) !important;
-    border-radius: 16px !important;
-  }
-
-  h1, h2, .title, .logo, .header, strong {
-    color: #00f0ff !important;
-    text-shadow: 0 0 25px #c300ff !important;
-  }
-
-  button, .btn, .accent, [role="button"] {
-    background: linear-gradient(90deg, #00f0ff, #c300ff) !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.5) !important;
-  }
-
-  .online {
-    background: #00ff9d !important;
-    color: #000 !important;
-  }
-</style>
-    margin: 0;
-    font-size: 36px;
-    color: #00f0ff;
-    text-shadow: 0 0 25px #c300ff;
-    letter-spacing: 3px;
-  }
-
-  .pulse-header p {
-    margin: 8px 0 0;
-    color: #00f0ff;
-    font-size: 16px;
-  }
-
-  /* Cards and Profiles */
-  .card, .profile, section, div, .container, [class*="card"], [class*="profile"] {
-    background: #1a1a1a !important;
-    border: 2px solid #00f0ff !important;
-    box-shadow: 0 0 30px rgba(195, 0, 255, 0.6) !important;
-    border-radius: 16px !important;
-  }
-
-  h1, h2, .title, .logo, .header, strong {
-    color: #00f0ff !important;
-    text-shadow: 0 0 25px #c300ff !important;
-  }
-
-  button, .btn, .accent, [role="button"] {
-    background: linear-gradient(90deg, #00f0ff, #c300ff) !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 0 15px rgba(0, 240, 255, 0.5) !important;
-  }
-
-  .online {
-    background: #00ff9d !important;
-    color: #000 !important;
-  }
-</style>
-    /* Cards & Profiles */
+    /* Cards and Profiles */
     .card, .profile, section, div, .container, [class*="card"], [class*="profile"] {
       background: #1a1a1a !important;
       border: 2px solid #00f0ff !important;
       box-shadow: 0 0 30px rgba(195, 0, 255, 0.6) !important;
       border-radius: 16px !important;
-      margin: 10px;
     }
 
     h1, h2, .title, .logo, .header, strong {
@@ -143,17 +58,11 @@
       color: white !important;
       border: none !important;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.5) !important;
-      border-radius: 8px;
     }
 
     .online {
       background: #00ff9d !important;
       color: #000 !important;
-    }
-
-    /* Hide old MEATEOR/Grinder text */
-    .header:contains("MEATEOR"), .title:contains("MEATEOR"), .title:contains("Grinder") {
-      display: none !important;
     }
   </style>
 </head>
@@ -165,253 +74,11 @@
     <p>Nearby guys • Instant chat • Right now</p>
   </div>
 
-  <!-- Rest of the original app content will load here -->
-  <script type="text/javascript">
-    // Your original scripts from the project go here
-    // (the rest of the file remains the same as your current index.html)
+  <!-- Original app content will load here -->
+  <script type="module">
+    // The original scripts from meateor will run here
+    // (Keep your original script content if you have it)
   </script>
 
 </body>
-</html>    background: #00ff9d !important;
-    color: #000 !important;
-  }
-
-  /* Hide old MEATEOR text if possible */
-  .header, .title:contains("MEATEOR"), .title:contains("Grinder") {
-    display: none !important;
-  }
-</style>
-    background: #0a0a0a !important;
-    color: #ffffff !important;
-  }
-
-  .card, .profile-card, [class*="card"], [class*="profile"], section, div {
-    background: #1a1a1a !important;
-    border: 1px solid #00f0ff !important;
-    box-shadow: 0 0 25px rgba(195, 0, 255, 0.4) !important;
-  }
-
-  h1, h2, .title, .logo, .header {
-    color: #00f0ff !important;
-    text-shadow: 0 0 20px #c300ff;
-  }
-
-  button, .btn, .tap, .accent {
-    background: linear-gradient(90deg, #00f0ff, #c300ff) !important;
-    color: white !important;
-  }
-
-  .online {
-    background: #00ff9d !important;
-    color: #000 !important;
-  }
-
-  input, select, textarea {
-    background: #111 !important;
-    color: white !important;
-    border: 1px solid #00f0ff !important;
-  }
-</style>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1"
-    />
-    <script type="text/javascript">
-      !localStorage.getItem('PULSE:dev') && (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "ubbpixswwb");
-    </script>
-  </head>
-  <body class="flex flex-col [&amp;&gt;div:first-child]:flex-1 min-h-screen">
-    <script type="module">
-      (async () => {
-        window.rootPrefix = /^\/(files|preview)\//.test(location.pathname)
-          ? location.pathname.split('/').slice(0, 4).join('/')
-          : '/';
-        if (rootPrefix === '/' || rootPrefix === '/collab.html')
-          rootPrefix = '.';
-        let wforigin =
-          new URL(location.href).searchParams.get('isolate') || location.origin;
-        if (
-          /^(\w+\.)?(webfoundry.app|webfoundry\d+\.netlify\.app|localhost)$/.test(
-            wforigin,
-          )
-        )
-          throw new Error(`Bad isolation origin`);
-        if (new URL(location.href).searchParams.get('isolate') != null) {
-          await navigator.serviceWorker.register('/sw.js');
-          await navigator.serviceWorker.ready;
-          if (!navigator.serviceWorker.controller) return location.reload();
-          let parts = location.pathname.slice(1).split('/');
-          let tabId = parts[1];
-          window.wfThisProject = parts[2];
-          navigator.serviceWorker.addEventListener('message', async event => {
-            let { type, project, path } = event.data || {};
-            if (type !== 'fetch' || wfThisProject !== project) return;
-            let port = event.ports?.[0];
-            if (!port) return;
-            let handler = ev => {
-              let data = ev.data || {};
-              if (
-                data.type !== 'fetch:res' ||
-                data.project !== project ||
-                data.path !== path
-              )
-                return;
-              removeEventListener('message', handler);
-              port.postMessage(data);
-            };
-            addEventListener('message', handler);
-            parent.postMessage({ type: 'fetch', project, path }, wforigin);
-          });
-          let register = () =>
-            navigator.serviceWorker.controller.postMessage({
-              type: 'webfoundry-register-tab',
-              tabId,
-            });
-          navigator.serviceWorker.addEventListener(
-            'controllerchange',
-            register,
-          );
-          register();
-          if (!location.pathname.startsWith('/preview/')) {
-            let path = parts.slice(3).join('/');
-            if (path !== 'index.html') {
-              let handler = async ev => {
-                let data = ev.data || {};
-                if (
-                  data.type !== 'fetch:res' ||
-                  data.project !== wfThisProject ||
-                  data.path !== path
-                )
-                  return;
-                removeEventListener('message', handler);
-                document.open();
-                document.write(await data.data.text());
-                document.close();
-              };
-              addEventListener('message', handler);
-              parent.postMessage(
-                { type: 'fetch', project: wfThisProject, path },
-                wforigin,
-              );
-              return;
-            }
-          }
-          await new Promise(pres => setTimeout(pres, 100));
-        }
-        if (location.pathname.includes('/files/')) return;
-        let [, md, mapp] = await Promise.all([
-          import(`${rootPrefix}/webfoundry/head.js`),
-          import(`${rootPrefix}/webfoundry/dominant.js`),
-          import(`${rootPrefix}/webfoundry/app.js`),
-        ]);
-        document.body.prepend(md.default.el(mapp.default));
-        parent.postMessage(
-          {
-            path: `pages/${location.pathname.slice(1).split('/').slice(3).join('/')}`,
-            type: 'ready',
-            status: 200,
-          },
-          wforigin,
-        );
-      })();
-    </script>
-  </body>
-  <script>
- <script>
-  function applyPulseTheme() {
-    // Force dark background
-    document.documentElement.style.background = '#0a0a0a';
-    document.body.style.background = '#0a0a0a';
-    document.body.style.color = '#ffffff';
-
-    // Target all cards and profiles
-    const cards = document.querySelectorAll('div, section, .card, .profile, [class*="card"], [class*="profile"]');
-    cards.forEach(el => {
-      if (el.children.length > 0 || el.textContent.trim().length > 5) {
-        el.style.background = '#1a1a1a';
-        el.style.border = '2px solid #00f0ff';
-        el.style.boxShadow = '0 0 30px rgba(195, 0, 255, 0.6)';
-        el.style.borderRadius = '16px';
-      }
-    });
-
-    // Headings and titles
-    const headings = document.querySelectorAll('h1, h2, h3, .title, .header, strong');
-    headings.forEach(h => {
-      h.style.color = '#00f0ff';
-      h.style.textShadow = '0 0 25px #c300ff';
-    });
-
-    // Buttons
-    const buttons = document.querySelectorAll('button, .btn, [role="button"], .accent');
-    buttons.forEach(btn => {
-      btn.style.background = 'linear-gradient(90deg, #00f0ff, #c300ff)';
-      btn.style.color = '#ffffff';
-      btn.style.border = 'none';
-      btn.style.boxShadow = '0 0 15px rgba(0, 240, 255, 0.5)';
-    });
-
-    // Online indicators
-    const online = document.querySelectorAll('.online, [class*="online"]');
-    online.forEach(o => {
-      o.style.background = '#00ff9d';
-      o.style.color = '#000';
-    });
-
-    console.log('%cPULSE neon theme forced', 'color:#00f0ff; font-size:16px');
-  }
-
-  // Run multiple times to catch dynamic content
-  window.addEventListener('load', () => {
-    applyPulseTheme();
-    setTimeout(applyPulseTheme, 800);
-    setTimeout(applyPulseTheme, 2000);
-    setTimeout(applyPulseTheme, 4000);
-  });
-
-  // Also run on any click or scroll (in case content loads later)
-  document.addEventListener('click', applyPulseTheme);
-  document.addEventListener('scroll', applyPulseTheme);
-</script>
-  function applyPulseTheme() {
-    document.body.style.background = '#0a0a0a';
-    document.body.style.color = '#ffffff';
-
-    const cards = document.querySelectorAll('.card, .profile, section, div');
-    cards.forEach(card => {
-      card.style.background = '#1a1a1a';
-      card.style.border = '1px solid #00f0ff';
-      card.style.boxShadow = '0 0 25px rgba(195, 0, 255, 0.5)';
-      card.style.borderRadius = '12px';
-    });
-
-    const headings = document.querySelectorAll('h1, h2, .title, .logo, .header');
-    headings.forEach(h => {
-      h.style.color = '#00f0ff';
-      h.style.textShadow = '0 0 20px #c300ff';
-    });
-
-    const buttons = document.querySelectorAll('button, .btn, .accent');
-    buttons.forEach(btn => {
-      btn.style.background = 'linear-gradient(90deg, #00f0ff, #c300ff)';
-      btn.style.color = 'white';
-      btn.style.border = 'none';
-    });
-
-    // Change title
-    const title = document.querySelector('title');
-    if (title) title.textContent = 'PULSE';
-
-    console.log('PULSE neon theme applied');
-  }
-
-  // Apply immediately and again after load
-  window.addEventListener('load', applyPulseTheme);
-  setTimeout(applyPulseTheme, 500);
-  setTimeout(applyPulseTheme, 1500);
-</script>
 </html>
